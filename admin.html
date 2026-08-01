@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel · Torneo SENA</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { sena: { 500: '#34d399', 600: '#10b981', 700: '#059669' } },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Inter, system-ui, sans-serif; }
+    .pestana { display: none; }
+    .pestana.activa { display: block; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+
+  <!-- ============ BARRA SUPERIOR ============ -->
+  <header class="sticky top-0 z-40 bg-slate-950/90 backdrop-blur border-b border-slate-800">
+    <div class="px-4 h-16 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="w-9 h-9 rounded-lg bg-emerald-500 text-slate-950 grid place-items-center text-sm">⚽</span>
+        <div>
+          <p class="font-black leading-tight">Panel de Administración</p>
+          <p class="text-[11px] text-slate-500 leading-tight" id="usuario-correo"></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="index.html" class="text-sm px-4 py-2 rounded-lg border border-slate-700 hover:bg-slate-800 font-semibold">Ver sitio</a>
+        <button id="btn-cerrar-sesion" class="text-sm px-4 py-2 rounded-lg bg-rose-600/10 border border-rose-600/40 text-rose-400 hover:bg-rose-600/20 font-semibold">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto px-4 py-6 flex flex-col lg:flex-row gap-6">
+
+    <!-- ============ MENÚ LATERAL ============ -->
+    <aside class="lg:w-56 shrink-0">
+      <nav class="flex lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0 text-sm font-semibold">
+        <button data-tab="resumen" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap bg-emerald-600 text-white">📊 Resumen</button>
+        <button data-tab="equipos" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">🛡️ Equipos</button>
+        <button data-tab="jugadores" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">👤 Jugadores</button>
+        <button data-tab="partidos" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📋 Partidos</button>
+        <button data-tab="eliminatoria" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">🏆 Eliminatoria</button>
+        <button data-tab="estadisticas" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📈 Estadísticas</button>
+        <button data-tab="reglas" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📜 Reglamento</button>
+        <button data-tab="galeria" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📸 Galería</button>
+        <button data-tab="config" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">⚙️ Configuración</button>
+      </nav>
+    </aside>
+
+    <!-- ============ CONTENIDO ============ -->
+    <main class="flex-1 min-w-0">
+
+      <!-- ===== RESUMEN ===== -->
+      <section id="sec-resumen" class="pestana">
+        <h2 class="text-xl font-black mb-4">Resumen del Torneo</h2>
+        <div id="resumen-tarjetas" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"></div>
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+          <h3 class="font-bold mb-2">Accesos rápidos</h3>
+          <p class="text-slate-400 text-sm mb-4">Usa el menú lateral para gestionar cada sección del torneo.</p>
+          <div class="flex flex-wrap gap-2 text-sm">
+            <button data-tab="equipos" class="tab-btn px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold">Registrar equipo</button>
+            <button data-tab="partidos" class="tab-btn px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold">Registrar resultado</button>
+            <button data-tab="eliminatoria" class="tab-btn px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold">Armar eliminatoria</button>
+            <button data-tab="galeria" class="tab-btn px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold">Subir fotos/videos</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== EQUIPOS ===== -->
+      <section id="sec-equipos" class="pestana">
+        <h2 class="text-xl font-black mb-4">Gestión de Equipos</h2>
+        <form id="form-equipo" class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 mb-6 grid md:grid-cols-2 gap-4">
+          <input type="hidden" id="eq-id">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nombre del equipo *</label>
+            <input id="eq-nombre" required class="campo w-full">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Grupo</label>
+            <input id="eq-grupo" placeholder="A, B, C…" class="campo w-full">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Escudo (imagen)</label>
+            <input id="eq-escudo" type="file" accept="image/*" class="campo w-full">
+          </div>
+          <div class="flex items-end gap-3">
+            <label class="flex items-center gap-2 text-sm pb-2.5 cursor-pointer">
+              <input id="eq-pago" type="checkbox" class="accent-emerald-500 w-4 h-4"> Pago de arbitraje
+            </label>
+            <button type="submit" class="ml-auto px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Guardar equipo</button>
+            <button type="button" id="btn-cancelar-equipo" class="hidden px-4 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm">Cancelar</button>
+          </div>
+        </form>
+        <div id="grid-equipos" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- ===== JUGADORES ===== -->
+      <section id="sec-jugadores" class="pestana">
+        <h2 class="text-xl font-black mb-4">Gestión de Jugadores</h2>
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 mb-6">
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Equipo</label>
+          <select id="jug-equipo" class="campo w-full md:w-80"></select>
+          <form id="form-jugador" class="grid md:grid-cols-2 gap-4 mt-4">
+            <input type="hidden" id="jug-id">
+            <input type="hidden" id="jug-foto-existente">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nombre *</label>
+              <input id="jug-nombre" required class="campo w-full">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Posición</label>
+              <select id="jug-posicion" class="campo w-full">
+                <option value="Arquero">Arquero</option>
+                <option value="Defensa">Defensa</option>
+                <option value="Centrocampista">Centrocampista</option>
+                <option value="Delantero">Delantero</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Número de camiseta</label>
+              <input id="jug-numero" type="number" min="1" max="99" class="campo w-full">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Foto</label>
+              <input id="jug-foto" type="file" accept="image/*" class="campo w-full">
+            </div>
+            <div class="flex items-end gap-3 md:col-span-2">
+              <button type="submit" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Guardar jugador</button>
+              <button type="button" id="btn-cancelar-jugador" class="hidden px-4 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm">Cancelar</button>
+            </div>
+          </form>
+        </div>
+        <div id="lista-jugadores" class="space-y-3"></div>
+      </section>
+
+      <!-- ===== PARTIDOS ===== -->
+      <section id="sec-partidos" class="pestana">
+        <h2 class="text-xl font-black mb-4">Gestión de Partidos</h2>
+        <form id="form-partido" class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 mb-6 grid md:grid-cols-3 gap-4">
+          <input type="hidden" id="par-id">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Fase *</label>
+            <select id="par-fase" class="campo w-full">
+              <option value="grupos">Fase de Grupos</option>
+              <option value="dieciseisavos">Dieciseisavos</option>
+              <option value="octavos">Octavos</option>
+              <option value="cuartos">Cuartos</option>
+              <option value="semifinal">Semifinal</option>
+              <option value="final">Final</option>
+              <option value="tercer_lugar">Tercer Lugar</option>
+            </select>
+          </div>
+          <div id="par-grupo-wrap">
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Grupo</label>
+            <input id="par-grupo" placeholder="A, B…" class="campo w-full">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Fecha y hora</label>
+            <input id="par-fecha" type="datetime-local" class="campo w-full">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Local</label>
+            <select id="par-local" class="campo w-full"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Visitante</label>
+            <select id="par-visitante" class="campo w-full"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Sede</label>
+            <input id="par-sede" class="campo w-full">
+          </div>
+          <div class="flex items-end gap-4">
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-slate-400">Local</span>
+              <input id="par-goles-local" type="number" min="0" value="0" class="campo w-16 text-center">
+            </div>
+            <span class="text-slate-500 pb-2">:</span>
+            <div class="flex items-center gap-2">
+              <input id="par-goles-visitante" type="number" min="0" value="0" class="campo w-16 text-center">
+              <span class="text-xs text-slate-400">Visitante</span>
+            </div>
+          </div>
+          <div class="flex items-end gap-3 md:col-span-3">
+            <label class="flex items-center gap-2 text-sm pb-2.5 cursor-pointer">
+              <input id="par-jugado" type="checkbox" class="accent-emerald-500 w-4 h-4"> Partido jugado
+            </label>
+            <button type="submit" class="ml-auto px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Guardar partido</button>
+            <button type="button" id="btn-cancelar-partido" class="hidden px-4 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm">Cancelar</button>
+          </div>
+        </form>
+        <div class="flex items-center gap-3 mb-3">
+          <label class="text-sm text-slate-400">Filtrar:</label>
+          <select id="filtro-partidos" class="campo w-56">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div id="lista-partidos" class="space-y-3"></div>
+      </section>
+
+      <!-- ===== ELIMINATORIA ===== -->
+      <section id="sec-eliminatoria" class="pestana">
+        <h2 class="text-xl font-black mb-4">Fase Eliminatoria</h2>
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 mb-6 flex flex-wrap items-end gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Equipos clasificados</label>
+            <select id="elim-clasificados" class="campo w-48">
+              <option value="4">4 equipos</option>
+              <option value="8">8 equipos</option>
+              <option value="16">16 equipos</option>
+              <option value="32">32 equipos</option>
+            </select>
+          </div>
+          <button id="btn-generar-cuadro" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Generar cuadro</button>
+          <p class="text-[11px] text-slate-500 max-w-xs">Regenerar el cuadro borra los partidos de eliminatoria existentes (no los de grupos).</p>
+        </div>
+        <div id="bracket-admin" class="rounded-xl border border-slate-800 bg-slate-950/60 p-4"></div>
+      </section>
+
+      <!-- ===== ESTADISTICAS ===== -->
+      <section id="sec-estadisticas" class="pestana">
+        <h2 class="text-xl font-black mb-4">Estadísticas por Partido</h2>
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 mb-6">
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Partido</label>
+          <select id="est-partido" class="campo w-full md:w-96"></select>
+          <div id="est-cuerpo" class="mt-5"></div>
+          <div class="flex items-center justify-between mt-4">
+            <p class="text-sm text-slate-400">Los totales se calculan y guardan automáticamente.</p>
+            <button id="btn-est-guardar" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Guardar estadísticas</button>
+          </div>
+        </div>
+        <h3 class="font-bold mb-3">Ranking acumulado del torneo</h3>
+        <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60">
+          <table class="w-full text-sm min-w-[560px]">
+            <thead>
+              <tr class="text-left text-slate-400 uppercase text-xs border-b border-slate-800">
+                <th class="px-3 py-3">Jugador</th>
+                <th class="px-3 py-3">Equipo</th>
+                <th class="px-3 py-3 text-center">⚽ Goles</th>
+                <th class="px-3 py-3 text-center">🎯 Asist.</th>
+                <th class="px-3 py-3 text-center">🟨</th>
+                <th class="px-3 py-3 text-center">🟥</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-ranking"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== REGLAS ===== -->
+      <section id="sec-reglas" class="pestana">
+        <h2 class="text-xl font-black mb-4">Reglamento del Torneo</h2>
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Contenido (Markdown)</label>
+          <textarea id="reglas-contenido" rows="14" class="campo w-full font-mono text-xs"
+            placeholder="# Reglamento del Torneo&#10;&#10;Escribe aquí el reglamento oficial usando Markdown…"></textarea>
+          <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
+            <p class="text-[11px] text-slate-500">Se admite Markdown: # títulos, **negrita**, - listas, etc.</p>
+            <button id="btn-guardar-reglas" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Guardar reglamento</button>
+          </div>
+        </div>
+        <h3 class="font-bold mt-6 mb-3">Vista previa</h3>
+        <div id="reglas-preview" class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 text-sm text-slate-300"></div>
+      </section>
+
+      <!-- ===== GALERIA ===== -->
+      <section id="sec-galeria" class="pestana">
+        <h2 class="text-xl font-black mb-4">Galería Multimedia</h2>
+        <form id="form-galeria" class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 mb-6 space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Fotos y videos (múltiples)</label>
+            <input id="gal-files" type="file" multiple accept="image/*,video/mp4,video/webm,video/quicktime" class="campo w-full">
+            <p class="text-[11px] text-slate-500 mt-1">Máx. 50 MB por archivo en el plan gratuito de Supabase.</p>
+          </div>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Título</label>
+              <input id="gal-titulo" class="campo w-full">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Partido relacionado</label>
+              <select id="gal-partido" class="campo w-full"><option value="">Ninguno</option></select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Descripción</label>
+            <input id="gal-desc" class="campo w-full">
+          </div>
+          <div class="flex items-center gap-3">
+            <button type="submit" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Subir archivos</button>
+            <div id="gal-progreso" class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden hidden">
+              <div class="h-full bg-emerald-500 transition-all" style="width:0%"></div>
+            </div>
+          </div>
+        </form>
+        <div id="galeria-admin" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+      </section>
+
+      <!-- ===== CONFIG ===== -->
+      <section id="sec-config" class="pestana">
+        <h2 class="text-xl font-black mb-4">Configuración del Torneo</h2>
+        <form id="form-config" class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 space-y-4 max-w-xl">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nombre del torneo</label>
+            <input id="cfg-nombre" required class="campo w-full">
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Número de grupos</label>
+              <input id="cfg-grupos" type="number" min="1" max="16" required class="campo w-full">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Clasificados a eliminatoria</label>
+              <input id="cfg-clasificados" type="number" min="4" step="4" required class="campo w-full">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nota de clasificación (se muestra en la tabla pública)</label>
+            <input id="cfg-nota" class="campo w-full">
+          </div>
+          <button type="submit" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Guardar configuración</button>
+        </form>
+      </section>
+
+    </main>
+  </div>
+
+  <style>
+    .campo {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: .5rem;
+      padding: .625rem .875rem;
+      font-size: .875rem;
+      color: #fff;
+      outline: none;
+    }
+    .campo:focus { border-color: #10b981; box-shadow: 0 0 0 2px rgba(16,185,129,.25); }
+    select.campo option { background: #1e293b; }
+  </style>
+
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>

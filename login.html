@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ingreso · Torneo SENA</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { sena: { 500: '#34d399', 600: '#10b981', 700: '#059669' } },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen grid place-items-center p-4">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500 text-slate-950 grid place-items-center text-2xl font-black mb-3">⚽</div>
+      <h1 class="text-2xl font-black">Torneo SENA</h1>
+      <p class="text-slate-500 text-sm mt-1">Panel de administración</p>
+    </div>
+
+    <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-2xl">
+      <div class="grid grid-cols-2 gap-1 bg-slate-800/60 rounded-lg p-1 mb-6 text-sm font-semibold">
+        <button id="btn-tab-login" class="py-2 rounded-md bg-emerald-600 text-white transition">Ingresar</button>
+        <button id="btn-tab-registro" class="py-2 rounded-md text-slate-400 hover:text-white transition">Registrar</button>
+      </div>
+
+      <form id="form-login" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Correo</label>
+          <input id="login-correo" type="email" required autocomplete="email"
+                 class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Contraseña</label>
+          <input id="login-clave" type="password" required autocomplete="current-password"
+                 class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <p id="login-error" class="hidden text-rose-400 text-xs"></p>
+        <button type="submit" id="btn-login"
+                class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-sm transition">Entrar al panel</button>
+      </form>
+
+      <form id="form-registro" class="space-y-4 hidden">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Correo</label>
+          <input id="reg-correo" type="email" required autocomplete="email"
+                 class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nombre</label>
+          <input id="reg-nombre" type="text"
+                 class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Contraseña</label>
+          <input id="reg-clave" type="password" required minlength="6" autocomplete="new-password"
+                 class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Clave de administrador</label>
+          <input id="reg-clave-admin" type="password" required
+                 class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          <p class="text-[11px] text-slate-500 mt-1">Te la facilita el administrador principal.</p>
+        </div>
+        <p id="reg-error" class="hidden text-rose-400 text-xs"></p>
+        <button type="submit" id="btn-registro"
+                class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-sm transition">Crear cuenta de administrador</button>
+      </form>
+    </div>
+
+    <p class="text-center mt-6">
+      <a href="index.html" class="text-slate-500 hover:text-emerald-400 text-sm transition">← Volver al sitio público</a>
+    </p>
+  </div>
+
+  <script type="module" src="js/auth.js"></script>
+</body>
+</html>
