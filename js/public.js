@@ -86,11 +86,11 @@ async function pintarPosiciones() {
         </div>
       </td>
       <td class="px-2 py-3 text-center">${f.pj}</td>
-      <td class="px-2 py-3 text-center">${f.pg}</td>
-      <td class="px-2 py-3 text-center">${f.pe}</td>
-      <td class="px-2 py-3 text-center">${f.pp}</td>
-      <td class="px-2 py-3 text-center">${f.gf}</td>
-      <td class="px-2 py-3 text-center">${f.gc}</td>
+      <td class="px-2 py-3 text-center hidden sm:table-cell">${f.pg}</td>
+      <td class="px-2 py-3 text-center hidden sm:table-cell">${f.pe}</td>
+      <td class="px-2 py-3 text-center hidden sm:table-cell">${f.pp}</td>
+      <td class="px-2 py-3 text-center hidden sm:table-cell">${f.gf}</td>
+      <td class="px-2 py-3 text-center hidden sm:table-cell">${f.gc}</td>
       <td class="px-2 py-3 text-center ${f.dg > 0 ? 'text-emerald-400' : f.dg < 0 ? 'text-rose-400' : ''}">${f.dg > 0 ? '+' : ''}${f.dg}</td>
       <td class="px-4 py-3 text-center font-black text-emerald-400">${f.puntos}</td>
     </tr>`).join('') || '<tr><td colspan="10" class="px-3 py-8 text-center text-slate-500">Aún no hay equipos registrados.</td></tr>';
