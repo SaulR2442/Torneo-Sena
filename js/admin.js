@@ -67,7 +67,7 @@ async function renderResumen() {
   await cargarBase();
   const jugados = state.partidos.filter(p => p.jugado).length;
   const pendientes = state.partidos.filter(p => !p.jugado).length;
-  $('resumen-tarjetas').innerHTML = `
+  $('resumen-grid').innerHTML = `
     <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4"><p class="text-3xl font-black text-emerald-400">${state.equipos.length}</p><p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Equipos</p></div>
     <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4"><p class="text-3xl font-black text-emerald-400">${state.jugadores.length}</p><p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Jugadores</p></div>
     <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4"><p class="text-3xl font-black text-emerald-400">${jugados}</p><p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Partidos jugados · ${pendientes} pendientes</p></div>`;
@@ -615,7 +615,7 @@ async function renderEstadisticas() {
   cargarEstadisticasPartido();
 
   const { data: ranking } = await supabase.from('ranking_jugadores').select('*');
-  $('tabla-ranking').innerHTML = (ranking || []).filter(j => j.goles > 0 || j.asistencias > 0 || j.amarillas > 0 || j.rojas > 0)
+  $('tabla-ranking').innerHTML = (ranking || []).filter(j => j.goles > 0 || j.asistencias > 0)
     .sort((a, b) => b.goles - a.goles || b.asistencias - a.asistencias || a.jugador.localeCompare(b.jugador))
     .map(j => `
       <tr class="border-b border-slate-800/50">
@@ -623,9 +623,7 @@ async function renderEstadisticas() {
         <td class="px-3 py-2.5 text-slate-400">${j.equipo}</td>
         <td class="px-3 py-2.5 text-center font-bold text-emerald-400">${j.goles}</td>
         <td class="px-3 py-2.5 text-center">${j.asistencias}</td>
-        <td class="px-3 py-2.5 text-center text-amber-400">${j.amarillas}</td>
-        <td class="px-3 py-2.5 text-center text-rose-400">${j.rojas}</td>
-      </tr>`).join('') || '<tr><td colspan="6" class="px-3 py-8 text-center text-slate-500">Sin estadísticas registradas aún.</td></tr>';
+      </tr>`).join('') || '<tr><td colspan="4" class="px-3 py-8 text-center text-slate-500">Sin estadísticas registradas aún.</td></tr>';
 }
 
 $('est-partido').addEventListener('change', cargarEstadisticasPartido);
@@ -651,8 +649,6 @@ async function cargarEstadisticasPartido() {
             <th class="text-left py-1.5">Jugador</th>
             <th class="text-center py-1.5 w-12">⚽</th>
             <th class="text-center py-1.5 w-12">🎯</th>
-            <th class="text-center py-1.5 w-12">🟨</th>
-            <th class="text-center py-1.5 w-12">🟥</th>
           </tr></thead>
           <tbody>${jugadores.map(j => {
             const e = existente[j.id];
@@ -660,8 +656,6 @@ async function cargarEstadisticasPartido() {
               <td class="py-1 pr-2 truncate">${j.nombre}</td>
               <td><input data-est="goles" type="number" min="0" value="${e?.goles ?? 0}" class="campo w-11 text-center !px-1 !py-1"></td>
               <td><input data-est="asistencias" type="number" min="0" value="${e?.asistencias ?? 0}" class="campo w-11 text-center !px-1 !py-1"></td>
-              <td><input data-est="amarillas" type="number" min="0" value="${e?.amarillas ?? 0}" class="campo w-11 text-center !px-1 !py-1"></td>
-              <td><input data-est="rojas" type="number" min="0" value="${e?.rojas ?? 0}" class="campo w-11 text-center !px-1 !py-1"></td>
             </tr>`;
           }).join('')}</tbody>
         </table>
@@ -681,13 +675,13 @@ $('btn-est-guardar').addEventListener('click', async () => {
   const filas = [];
   document.querySelectorAll('#est-cuerpo tr[data-jugador]').forEach(tr => {
     const lee = campo => Number(tr.querySelector(`[data-est="${campo}"]`).value || 0);
-    const goles = lee('goles'), asistencias = lee('asistencias'), amarillas = lee('amarillas'), rojas = lee('rojas');
-    if (goles + asistencias + amarillas + rojas > 0) {
+    const goles = lee('goles'), asistencias = lee('asistencias');
+    if (goles + asistencias > 0) {
       filas.push({
         partido_id: partidoId,
         jugador_id: tr.dataset.jugador,
         equipo_id: tr.dataset.equipo,
-        goles, asistencias, amarillas, rojas
+        goles, asistencias
       });
     }
   });

@@ -122,7 +122,7 @@ export const CONFIG = {
 | 👤 Jugadores | Registrar jugadores por equipo (nombre, posición, número, foto) |
 | 📋 Partidos | Registrar partidos y resultados (Todos contra Todos y eliminatoria), goleadores y arbitraje por jugador |
 | 🏆 Eliminatoria | Generar cuadro de 4/8/16/32 y cargar resultados con avance automático |
-| 📈 Estadísticas | Contadores por jugador por partido: goles, asistencias, 🟨, 🟥 |
+| 📈 Estadísticas | Contadores por jugador por partido: goles y asistencias |
 | 📜 Reglamento | Redactar las reglas en Markdown con vista previa |
 | 📸 Galería | Subir fotos y videos (Supabase Storage) y asociarlos a partidos |
 | ⚙️ Configuración | Nombre del torneo, clasificados a eliminatoria, nota de clasificación |

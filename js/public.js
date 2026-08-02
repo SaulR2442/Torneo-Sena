@@ -103,7 +103,7 @@ async function pintarPosiciones() {
 // ============ ESTADISTICAS ============
 async function pintarEstadisticas() {
   const { data } = await supabase.from('ranking_jugadores').select('*');
-  const jugadores = (data || []).filter(j => j.goles > 0 || j.asistencias > 0 || j.amarillas > 0 || j.rojas > 0);
+  const jugadores = (data || []).filter(j => j.goles > 0 || j.asistencias > 0);
   const top = (lista, campo, n = 5, icono = '') => {
     const orden = [...lista].sort((a, b) => b[campo] - a[campo]).slice(0, n);
     if (!orden.length) return '<li class="text-slate-600 text-xs">Sin datos aún</li>';
@@ -119,25 +119,15 @@ async function pintarEstadisticas() {
   };
   $('top-goleadores').innerHTML = top(jugadores, 'goles');
   $('top-asistencias').innerHTML = top(jugadores, 'asistencias');
-  $('top-amarillas').innerHTML = top(jugadores, 'amarillas');
-  $('top-rojas').innerHTML = top(jugadores, 'rojas');
 
-  const total = jugadores.reduce((acc, j) => {
-    acc.amarillas += j.amarillas; acc.rojas += j.rojas; return acc;
-  }, { amarillas: 0, rojas: 0 });
-
-  $('totales-tarjetas').innerHTML = `
+  $('totales-torneo').innerHTML = `
     <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-center">
-      <p class="text-3xl font-black text-amber-400">${total.amarillas}</p>
-      <p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Tarjetas amarillas</p>
-    </div>
-    <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-center">
-      <p class="text-3xl font-black text-rose-400">${total.rojas}</p>
-      <p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Tarjetas rojas</p>
-    </div>
-    <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-center col-span-2">
       <p class="text-3xl font-black text-emerald-400">${jugadores.reduce((a, j) => a + j.goles, 0)}</p>
       <p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Goles totales del torneo</p>
+    </div>
+    <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-center">
+      <p class="text-3xl font-black text-sky-400">${jugadores.reduce((a, j) => a + j.asistencias, 0)}</p>
+      <p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Asistencias totales del torneo</p>
     </div>`;
 }
 
