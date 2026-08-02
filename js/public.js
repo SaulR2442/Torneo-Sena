@@ -73,7 +73,9 @@ async function pintarPosiciones() {
     .sort((a, b) => b.puntos - a.puntos || b.dg - a.dg || b.gf - a.gf || a.nombre.localeCompare(b.nombre));
 
   const numGrupos = Number(config.num_grupos || 1);
-  const clasifican = numGrupos > 1 ? Math.max(1, Math.floor(Number(config.num_clasificados || 0) / numGrupos)) : 0;
+  const clasifican = numGrupos > 1
+    ? Math.max(1, Math.floor(Number(config.num_clasificados || 0) / numGrupos))
+    : Number(config.num_clasificados || 0);
 
   $('tbody-posiciones').innerHTML = visibles.map((f, i) => `
     <tr class="border-b border-slate-800/60 hover:bg-slate-800/30 ${i < clasifican ? 'bg-emerald-500/5' : ''}">

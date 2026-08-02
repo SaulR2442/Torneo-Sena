@@ -21,6 +21,9 @@ create table if not exists public.administradores (
 
 -- ============================================================
 -- EQUIPOS
+-- Nota: "grupo" y "pago_arbitraje" quedan en desuso (el torneo es
+-- "Todos contra Todos" y el arbitraje se controla por jugador en
+-- arbitraje_partidos). Se conservan solo por compatibilidad.
 -- ============================================================
 create table if not exists public.equipos (
   id uuid primary key default gen_random_uuid(),
@@ -47,7 +50,9 @@ create table if not exists public.jugadores (
 
 -- ============================================================
 -- PARTIDOS
--- fase: grupos | dieciseisavos | octavos | cuartos | semifinal | final | tercer_lugar
+-- fase: grupos (Todos contra Todos) | dieciseisavos | octavos |
+--       cuartos | semifinal | final | tercer_lugar
+-- fecha: solo se usa la fecha (día), sin hora
 -- ============================================================
 create table if not exists public.partidos (
   id uuid primary key default gen_random_uuid(),
@@ -86,6 +91,19 @@ create table if not exists public.estadisticas (
 create index if not exists idx_est_jugador on public.estadisticas (jugador_id);
 
 -- ============================================================
+-- ARBITRAJE POR PARTIDO (pago individual por jugador)
+-- ============================================================
+create table if not exists public.arbitraje_partidos (
+  id uuid primary key default gen_random_uuid(),
+  partido_id uuid not null references public.partidos(id) on delete cascade,
+  jugador_id uuid not null references public.jugadores(id) on delete cascade,
+  pagado boolean default false,
+  unique (partido_id, jugador_id)
+);
+
+create index if not exists idx_arb_partido on public.arbitraje_partidos (partido_id);
+
+-- ============================================================
 -- GALERIA
 -- ============================================================
 create table if not exists public.galeria (
@@ -117,9 +135,9 @@ create table if not exists public.config (
 
 insert into public.config (clave, valor) values
   ('torneo_nombre', 'Torneo SENA'),
-  ('num_grupos', '2'),
+  ('num_grupos', '1'),
   ('num_clasificados', '8'),
-  ('nota_clasificacion', 'Clasifican los mejores equipos de cada grupo a la fase eliminatoria')
+  ('nota_clasificacion', 'Clasifican los mejores equipos de la tabla general a la fase eliminatoria')
 on conflict (clave) do nothing;
 
 -- ============================================================
@@ -149,6 +167,7 @@ alter table public.equipos enable row level security;
 alter table public.jugadores enable row level security;
 alter table public.partidos enable row level security;
 alter table public.estadisticas enable row level security;
+alter table public.arbitraje_partidos enable row level security;
 alter table public.galeria enable row level security;
 alter table public.reglas enable row level security;
 alter table public.config enable row level security;
@@ -167,6 +186,9 @@ create policy "admin partidos" on public.partidos for all to authenticated using
 
 create policy "lectura publica estadisticas" on public.estadisticas for select to anon, authenticated using (true);
 create policy "admin estadisticas" on public.estadisticas for all to authenticated using (public.es_admin()) with check (public.es_admin());
+
+create policy "lectura publica arbitraje" on public.arbitraje_partidos for select to anon, authenticated using (true);
+create policy "admin arbitraje" on public.arbitraje_partidos for all to authenticated using (public.es_admin()) with check (public.es_admin());
 
 create policy "lectura publica galeria" on public.galeria for select to anon, authenticated using (true);
 create policy "admin galeria" on public.galeria for all to authenticated using (public.es_admin()) with check (public.es_admin());

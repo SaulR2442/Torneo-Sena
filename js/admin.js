@@ -1,4 +1,4 @@
-import { supabase, toast, confirmar, subirArchivo, esVideo, cargando, escudo, fmtFecha, toDateTimeLocal, ETIQUETAS_FASE, ORDEN_ELIMINATORIA, opcionesSelect } from './lib.js';
+import { supabase, toast, confirmar, subirArchivo, esVideo, cargando, escudo, fmtFecha, ETIQUETAS_FASE, ORDEN_ELIMINATORIA, opcionesSelect } from './lib.js';
 import { renderBracket } from './bracket.js';
 import { CONFIG } from './config.js';
 
@@ -67,12 +67,10 @@ async function renderResumen() {
   await cargarBase();
   const jugados = state.partidos.filter(p => p.jugado).length;
   const pendientes = state.partidos.filter(p => !p.jugado).length;
-  const pendientesArbitraje = state.equipos.filter(e => !e.pago_arbitraje).length;
   $('resumen-tarjetas').innerHTML = `
     <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4"><p class="text-3xl font-black text-emerald-400">${state.equipos.length}</p><p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Equipos</p></div>
     <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4"><p class="text-3xl font-black text-emerald-400">${state.jugadores.length}</p><p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Jugadores</p></div>
-    <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4"><p class="text-3xl font-black text-emerald-400">${jugados}</p><p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Partidos jugados · ${pendientes} pendientes</p></div>
-    <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4"><p class="text-3xl font-black ${pendientesArbitraje ? 'text-amber-400' : 'text-emerald-400'}">${pendientesArbitraje}</p><p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Equipos sin pagar arbitraje</p></div>`;
+    <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4"><p class="text-3xl font-black text-emerald-400">${jugados}</p><p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Partidos jugados · ${pendientes} pendientes</p></div>`;
 }
 
 // ============================================================
@@ -92,25 +90,14 @@ async function renderEquipos() {
         ${escudo(e, 'w-12 h-12')}
         <div class="min-w-0">
           <p class="font-bold truncate">${e.nombre}</p>
-          <p class="text-xs text-slate-500">${e.grupo ? `Grupo ${e.grupo}` : 'Sin grupo'}</p>
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <button data-pago="${e.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-lg ${e.pago_arbitraje ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}">
-          ${e.pago_arbitraje ? '✓ Arbitraje pagado' : 'Arbitraje pendiente'}
-        </button>
         <button data-editar="${e.id}" class="ml-auto text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700">Editar</button>
         <button data-eliminar="${e.id}" class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-600/10 text-rose-400 hover:bg-rose-600/20">Eliminar</button>
       </div>
     </div>`).join('');
 
-  grid.querySelectorAll('[data-pago]').forEach(b => b.addEventListener('click', async () => {
-    const id = b.dataset.pago;
-    const equipo = state.equipos.find(x => x.id === id);
-    await supabase.from('equipos').update({ pago_arbitraje: !equipo.pago_arbitraje }).eq('id', id);
-    toast(equipo.pago_arbitraje ? 'Arbitraje marcado como pendiente' : '¡Arbitraje pagado!');
-    renderEquipos();
-  }));
   grid.querySelectorAll('[data-editar]').forEach(b => b.addEventListener('click', () => editarEquipo(b.dataset.editar)));
   grid.querySelectorAll('[data-eliminar]').forEach(b => b.addEventListener('click', async () => {
     const e = state.equipos.find(x => x.id === b.dataset.eliminar);
@@ -125,8 +112,6 @@ function editarEquipo(id) {
   const e = state.equipos.find(x => x.id === id);
   $('eq-id').value = e.id;
   $('eq-nombre').value = e.nombre;
-  $('eq-grupo').value = e.grupo || '';
-  $('eq-pago').checked = e.pago_arbitraje;
   $('eq-escudo').value = '';
   $('btn-cancelar-equipo').classList.remove('hidden');
 }
@@ -145,9 +130,7 @@ $('form-equipo').addEventListener('submit', async e => {
     }
   }
   const datos = {
-    nombre: $('eq-nombre').value.trim(),
-    grupo: $('eq-grupo').value.trim().toUpperCase() || null,
-    pago_arbitraje: $('eq-pago').checked
+    nombre: $('eq-nombre').value.trim()
   };
   if (escudo_url) datos.escudo_url = escudo_url;
   const { error } = id
@@ -267,8 +250,160 @@ $('jug-equipo').addEventListener('change', renderJugadores);
 // ============================================================
 // PARTIDOS
 // ============================================================
+let goleadoresSel = [];
+let arbitrajeEstado = {};
+
+const equipoNombre = id => state.equipos.find(e => e.id === id)?.nombre ?? '';
+
+function fechaHoy() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function jugadoresDelPartido() {
+  const local = $('par-local').value, visitante = $('par-visitante').value;
+  return state.jugadores.filter(j => j.equipo_id === local || j.equipo_id === visitante);
+}
+
+function actualizarMarcador() {
+  const porId = Object.fromEntries(state.equipos.map(e => [e.id, e.nombre]));
+  const l = $('par-local').value, v = $('par-visitante').value;
+  $('marc-equipo1').textContent = l ? porId[l] : 'Equipo 1';
+  $('marc-equipo2').textContent = v ? porId[v] : 'Equipo 2';
+}
+
+function renderListaGoleadores() {
+  const porJugador = Object.fromEntries(state.jugadores.map(j => [j.id, j]));
+  const ul = $('lista-goleadores');
+  if (!goleadoresSel.length) {
+    ul.innerHTML = '<li class="text-slate-500 text-xs">Sin goleadores registrados.</li>';
+    return;
+  }
+  ul.innerHTML = goleadoresSel.map((g, i) => {
+    const j = porJugador[g.jugador_id];
+    return `
+      <li class="flex items-center gap-2">
+        <span class="text-emerald-400 font-black">⚽</span>
+        <span class="font-semibold">${j?.nombre ?? '?'}</span>
+        <span class="text-slate-500 text-xs truncate">${equipoNombre(j?.equipo_id)}</span>
+        <span class="ml-auto font-black text-emerald-400">${g.goles} gol${g.goles !== 1 ? 'es' : ''}</span>
+        <button type="button" data-quitar="${i}" class="text-xs px-2 py-1 rounded bg-rose-600/10 text-rose-400 hover:bg-rose-600/20">Quitar</button>
+      </li>`;
+  }).join('');
+  ul.querySelectorAll('[data-quitar]').forEach(b => b.addEventListener('click', () => {
+    goleadoresSel.splice(Number(b.dataset.quitar), 1);
+    actualizarGoleadores();
+  }));
+}
+
+function actualizarGoleadores() {
+  const jugadores = jugadoresDelPartido();
+  const agregados = new Set(goleadoresSel.map(g => g.jugador_id));
+  $('gol-jugador').innerHTML = jugadores.length
+    ? `<option value="">Elige jugador…</option>` + jugadores
+        .filter(j => !agregados.has(j.id))
+        .map(j => `<option value="${j.id}">${j.nombre} (${equipoNombre(j.equipo_id)})</option>`)
+        .join('')
+    : '<option value="">Selecciona los equipos primero</option>';
+  renderListaGoleadores();
+}
+
+function renderArbitraje() {
+  const caja = $('lista-arbitraje');
+  const jugadores = jugadoresDelPartido();
+  if (!jugadores.length) {
+    caja.innerHTML = '<p class="text-slate-500 text-xs">Selecciona los equipos primero.</p>';
+    return;
+  }
+  caja.innerHTML = jugadores.map(j => `
+    <label class="flex items-center gap-2 text-sm rounded-lg bg-slate-900/60 border border-slate-700/60 px-3 py-2 cursor-pointer hover:bg-slate-800/60 transition">
+      <input type="checkbox" data-arb="${j.id}" ${arbitrajeEstado[j.id] ? 'checked' : ''} class="accent-emerald-500 w-4 h-4 shrink-0">
+      <span class="truncate">${j.nombre}</span>
+      <span class="text-[10px] text-slate-500 truncate">${equipoNombre(j.equipo_id)}</span>
+    </label>`).join('');
+  caja.querySelectorAll('[data-arb]').forEach(cb => cb.addEventListener('change', () => {
+    arbitrajeEstado[cb.dataset.arb] = cb.checked;
+  }));
+}
+
+function equiposCambiados() {
+  goleadoresSel = [];
+  arbitrajeEstado = {};
+  actualizarMarcador();
+  actualizarGoleadores();
+  renderArbitraje();
+}
+
+function resetFormPartido() {
+  $('form-partido').reset();
+  $('par-id').value = '';
+  $('par-fecha').value = fechaHoy();
+  $('par-sede').value = 'SENA';
+  goleadoresSel = [];
+  arbitrajeEstado = {};
+  actualizarMarcador();
+  actualizarGoleadores();
+  renderArbitraje();
+  $('btn-cancelar-partido').classList.add('hidden');
+}
+
+async function cargarGoleadores(partidoId) {
+  goleadoresSel = [];
+  if (!partidoId) return;
+  const { data } = await supabase.from('estadisticas').select('jugador_id, goles').eq('partido_id', partidoId).gt('goles', 0);
+  goleadoresSel = (data || []).map(r => ({ jugador_id: r.jugador_id, goles: r.goles }));
+}
+
+async function cargarArbitraje(partidoId) {
+  arbitrajeEstado = {};
+  if (!partidoId) return;
+  const { data } = await supabase.from('arbitraje_partidos').select('jugador_id, pagado').eq('partido_id', partidoId);
+  (data || []).forEach(r => { arbitrajeEstado[r.jugador_id] = r.pagado; });
+}
+
+async function guardarGoleadores(partidoId) {
+  const idsEquipos = [$('par-local').value, $('par-visitante').value].filter(Boolean);
+  if (!idsEquipos.length) return;
+  const filas = goleadoresSel.map(g => {
+    const jugador = state.jugadores.find(j => j.id === g.jugador_id);
+    return {
+      partido_id: partidoId,
+      jugador_id: g.jugador_id,
+      equipo_id: jugador?.equipo_id,
+      goles: g.goles
+    };
+  }).filter(f => f.equipo_id);
+  const { error } = await supabase.from('estadisticas').upsert(filas, { onConflict: 'partido_id,jugador_id' });
+  if (error) { toast('Error al guardar goleadores: ' + error.message, 'error'); return; }
+  const { data: existentes } = await supabase.from('estadisticas').select('jugador_id, goles, equipo_id').eq('partido_id', partidoId);
+  const quitar = (existentes || []).filter(r =>
+    (r.goles || 0) > 0 &&
+    idsEquipos.includes(r.equipo_id) &&
+    !goleadoresSel.some(g => g.jugador_id === r.jugador_id)
+  );
+  if (quitar.length) {
+    await supabase.from('estadisticas').update({ goles: 0 })
+      .eq('partido_id', partidoId)
+      .in('jugador_id', quitar.map(r => r.jugador_id));
+  }
+}
+
+async function guardarArbitraje(partidoId) {
+  const jugadores = jugadoresDelPartido();
+  if (!jugadores.length) return;
+  const filas = jugadores.map(j => ({
+    partido_id: partidoId,
+    jugador_id: j.id,
+    pagado: !!arbitrajeEstado[j.id]
+  }));
+  const { error } = await supabase.from('arbitraje_partidos').upsert(filas, { onConflict: 'partido_id,jugador_id' });
+  if (error) { toast('Error al guardar arbitraje: ' + error.message, 'error'); return; }
+}
+
 async function renderPartidos() {
   await cargarBase();
+  resetFormPartido();
   $('par-local').innerHTML = opcionesSelect(state.equipos);
   $('par-visitante').innerHTML = opcionesSelect(state.equipos);
   const filtro = $('filtro-partidos');
@@ -284,7 +419,7 @@ async function renderPartidos() {
   lista.innerHTML = visibles.map(p => `
     <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 flex flex-wrap items-center gap-3">
       <div class="min-w-0">
-        <p class="text-[10px] uppercase tracking-wider text-slate-500">${ETIQUETAS_FASE[p.fase] ?? p.fase}${p.grupo ? ` · Grupo ${p.grupo}` : ''} · ${fmtFecha(p.fecha)}</p>
+        <p class="text-[10px] uppercase tracking-wider text-slate-500">${ETIQUETAS_FASE[p.fase] ?? p.fase} · ${fmtFecha(p.fecha)}</p>
         <p class="text-sm font-semibold mt-0.5">
           ${porId[p.equipo_local_id]?.nombre ?? 'Pendiente'} <span class="text-slate-500">vs</span> ${porId[p.equipo_visitante_id]?.nombre ?? 'Pendiente'}
         </p>
@@ -306,18 +441,22 @@ async function renderPartidos() {
 
 $('filtro-partidos').addEventListener('change', renderPartidos);
 
-function editarPartido(id) {
+async function editarPartido(id) {
   const p = state.partidos.find(x => x.id === id);
   $('par-id').value = p.id;
   $('par-fase').value = p.fase;
-  $('par-grupo').value = p.grupo || '';
-  $('par-fecha').value = toDateTimeLocal(p.fecha);
-  $('par-sede').value = p.sede || '';
+  $('par-fecha').value = p.fecha ? p.fecha.slice(0, 10) : fechaHoy();
+  $('par-sede').value = p.sede || 'SENA';
   $('par-local').value = p.equipo_local_id || '';
   $('par-visitante').value = p.equipo_visitante_id || '';
   $('par-goles-local').value = p.goles_local ?? 0;
   $('par-goles-visitante').value = p.goles_visitante ?? 0;
   $('par-jugado').checked = p.jugado;
+  await cargarGoleadores(p.id);
+  await cargarArbitraje(p.id);
+  actualizarMarcador();
+  actualizarGoleadores();
+  renderArbitraje();
   $('btn-cancelar-partido').classList.remove('hidden');
 }
 
@@ -327,9 +466,8 @@ $('form-partido').addEventListener('submit', async e => {
   const jugado = $('par-jugado').checked;
   const datos = {
     fase: $('par-fase').value,
-    grupo: $('par-fase').value === 'grupos' ? ($('par-grupo').value.trim().toUpperCase() || null) : null,
-    fecha: $('par-fecha').value ? new Date($('par-fecha').value).toISOString() : null,
-    sede: $('par-sede').value.trim() || null,
+    fecha: $('par-fecha').value ? new Date(`${$('par-fecha').value}T12:00:00`).toISOString() : null,
+    sede: $('par-sede').value.trim() || 'SENA',
     equipo_local_id: $('par-local').value || null,
     equipo_visitante_id: $('par-visitante').value || null,
     goles_local: Number($('par-goles-local').value || 0),
@@ -342,26 +480,37 @@ $('form-partido').addEventListener('submit', async e => {
   } else {
     datos.ganador_id = null;
   }
-  const { error } = id
-    ? await supabase.from('partidos').update(datos).eq('id', id)
-    : await supabase.from('partidos').insert(datos);
-  if (error) { toast('Error al guardar partido: ' + error.message, 'error'); return; }
+  let partidoId = id;
+  if (id) {
+    const { error } = await supabase.from('partidos').update(datos).eq('id', id);
+    if (error) { toast('Error al guardar partido: ' + error.message, 'error'); return; }
+  } else {
+    const { data, error } = await supabase.from('partidos').insert(datos).select().single();
+    if (error) { toast('Error al guardar partido: ' + error.message, 'error'); return; }
+    partidoId = data.id;
+  }
+  await guardarGoleadores(partidoId);
+  await guardarArbitraje(partidoId);
   toast(id ? 'Partido actualizado' : 'Partido registrado');
-  e.target.reset();
-  $('par-id').value = '';
-  $('btn-cancelar-partido').classList.add('hidden');
+  resetFormPartido();
   renderPartidos();
 });
 
-$('btn-cancelar-partido').addEventListener('click', () => {
-  $('form-partido').reset();
-  $('par-id').value = '';
-  $('btn-cancelar-partido').classList.add('hidden');
+$('btn-cancelar-partido').addEventListener('click', resetFormPartido);
+
+$('btn-agregar-gol').addEventListener('click', () => {
+  const jid = $('gol-jugador').value;
+  const n = Number($('gol-cantidad').value || 1);
+  if (!jid) { toast('Selecciona un jugador', 'error'); return; }
+  const idx = goleadoresSel.findIndex(g => g.jugador_id === jid);
+  if (idx >= 0) goleadoresSel[idx].goles += n;
+  else goleadoresSel.push({ jugador_id: jid, goles: n });
+  $('gol-cantidad').value = 1;
+  actualizarGoleadores();
 });
 
-$('par-fase').addEventListener('change', () => {
-  $('par-grupo-wrap').style.display = $('par-fase').value === 'grupos' ? '' : 'none';
-});
+$('par-local').addEventListener('change', equiposCambiados);
+$('par-visitante').addEventListener('change', equiposCambiados);
 
 // ============================================================
 // ELIMINATORIA
@@ -381,7 +530,7 @@ async function renderEliminatoria() {
 $('btn-generar-cuadro').addEventListener('click', async () => {
   const N = Number($('elim-clasificados').value);
   if (!(await confirmar(
-    `Se generará un cuadro de ${N} equipos. Esto BORRARÁ los partidos de eliminatoria actuales (no toca la fase de grupos). ¿Continuar?`,
+    `Se generará un cuadro de ${N} equipos. Esto BORRARÁ los partidos de eliminatoria actuales (no toca la fase de Todos contra Todos). ¿Continuar?`,
     'Generar cuadro eliminatorio'
   ))) return;
   const plantilla = {
@@ -652,7 +801,6 @@ $('form-galeria').addEventListener('submit', async e => {
 // ============================================================
 async function cargarConfig() {
   $('cfg-nombre').value = state.config.torneo_nombre || '';
-  $('cfg-grupos').value = state.config.num_grupos || '1';
   $('cfg-clasificados').value = state.config.num_clasificados || '8';
   $('cfg-nota').value = state.config.nota_clasificacion || '';
 }
@@ -661,7 +809,6 @@ $('form-config').addEventListener('submit', async e => {
   e.preventDefault();
   const valores = {
     torneo_nombre: $('cfg-nombre').value.trim(),
-    num_grupos: $('cfg-grupos').value,
     num_clasificados: $('cfg-clasificados').value,
     nota_clasificacion: $('cfg-nota').value.trim()
   };

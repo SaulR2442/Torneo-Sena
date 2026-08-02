@@ -4,7 +4,7 @@ import { CONFIG } from './config.js';
 export const supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
 
 export const ETIQUETAS_FASE = {
-  grupos: 'Fase de Grupos',
+  grupos: 'Todos contra Todos',
   dieciseisavos: 'Dieciseisavos de Final',
   octavos: 'Octavos de Final',
   cuartos: 'Cuartos de Final',
@@ -36,9 +36,8 @@ export function escudo(equipo, cls = 'w-8 h-8') {
 export function fmtFecha(iso) {
   if (!iso) return 'Por definir';
   const d = new Date(iso);
-  return d.toLocaleString('es-CO', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit'
+  return d.toLocaleDateString('es-CO', {
+    day: 'numeric', month: 'short', year: 'numeric'
   });
 }
 

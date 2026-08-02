@@ -118,14 +118,14 @@ export const CONFIG = {
 | Sección | Qué hace |
 |---------|----------|
 | 📊 Resumen | Conteos rápidos y accesos directos |
-| 🛡️ Equipos | Registrar equipos (nombre, grupo, escudo, **pago de arbitraje** Sí/No) |
+| 🛡️ Equipos | Registrar equipos (nombre y escudo) |
 | 👤 Jugadores | Registrar jugadores por equipo (nombre, posición, número, foto) |
-| 📋 Partidos | Registrar partidos y resultados (grupos y eliminatoria) |
+| 📋 Partidos | Registrar partidos y resultados (Todos contra Todos y eliminatoria), goleadores y arbitraje por jugador |
 | 🏆 Eliminatoria | Generar cuadro de 4/8/16/32 y cargar resultados con avance automático |
 | 📈 Estadísticas | Contadores por jugador por partido: goles, asistencias, 🟨, 🟥 |
 | 📜 Reglamento | Redactar las reglas en Markdown con vista previa |
 | 📸 Galería | Subir fotos y videos (Supabase Storage) y asociarlos a partidos |
-| ⚙️ Configuración | Nombre del torneo, nº de grupos, clasificados, nota de clasificación |
+| ⚙️ Configuración | Nombre del torneo, clasificados a eliminatoria, nota de clasificación |
 
 ### Cómo funciona la eliminatoria
 
@@ -134,7 +134,7 @@ export const CONFIG = {
 2. En cada cruce asigna los equipos clasificados con los desplegables.
 3. Al marcar **Jugado** y guardar: el ganador avanza automáticamente al siguiente cruce, y los
    perdedores de las semifinales alimentan automáticamente el **Tercer Lugar**.
-4. Los resultados de grupos actualizan solos la tabla de posiciones (vista SQL).
+4. Los resultados de la fase **Todos contra Todos** actualizan solos la tabla de posiciones (vista SQL).
 
 ### Nota sobre videos
 
@@ -147,15 +147,15 @@ export const CONFIG = {
 Para probar rápido, ejecuta en el SQL Editor:
 
 ```sql
-insert into equipos (nombre, grupo, pago_arbitraje) values
-  ('Los Tiburones', 'A', true), ('Rayo Verde', 'A', true),
-  ('Furia Negra', 'B', false), ('Estrellas SENA', 'B', true);
+insert into equipos (nombre) values
+  ('Los Tiburones'), ('Rayo Verde'),
+  ('Furia Negra'), ('Estrellas SENA');
 
 insert into jugadores (equipo_id, nombre, posicion, numero)
 select id, 'Jugador ' || row_number() over (), 'Delantero', 7 from equipos;
 
-insert into partidos (fase, grupo, equipo_local_id, equipo_visitante_id, goles_local, goles_visitante, jugado, fecha, ganador_id)
-select 'grupos', 'A', e1.id, e2.id, 3, 1, true, now(), e1.id
+insert into partidos (fase, equipo_local_id, equipo_visitante_id, goles_local, goles_visitante, jugado, fecha, ganador_id)
+select 'grupos', e1.id, e2.id, 3, 1, true, now(), e1.id
 from equipos e1, equipos e2 where e1.nombre = 'Los Tiburones' and e2.nombre = 'Rayo Verde';
 ```
 
