@@ -77,6 +77,39 @@ header.sticky {
   background-color: #0b0d12;
 }
 
+/* Video de fondo del Hero: cubre todo el espacio sin deformarse */
+.hero-video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  z-index: 0;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+}
+
+/* Capa de superposición: oscurece el video para legibilidad total */
+.hero-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(11, 13, 18, 0.65);
+  z-index: 1;
+}
+
+/* Asegura que el contenido (logo, títulos, botones) quede por encima del video y del overlay */
+#hero .container,
+#hero .hero-content,
+#inicio .hero-content {
+  position: relative;
+  z-index: 2;
+}
+
 /* Logo oficial del torneo en la navbar */
 .logo-nav {
   height: 2.5rem;
@@ -111,6 +144,7 @@ header.sticky {
   bottom: 0;
   height: 3px;
   background: #d4af37;
+  z-index: 3;
 }
 
 /* Título principal: dorado trofeo sólido */
