@@ -51,6 +51,10 @@ let grupoActivo = 'TODOS';
 async function pintarPosiciones() {
   const { data } = await supabase.from('tabla_posiciones').select('*');
   const filas = data || [];
+  // Misma fuente de datos que el panel admin: la tabla "equipos"
+  // (contiene siempre escudo_url). La vista tabla_posiciones puede
+  // estar desactualizada y no exponer el campo.
+  const porId = Object.fromEntries(equipos.map(e => [e.id, e]));
   const grupos = [...new Set(filas.map(f => f.grupo).filter(Boolean))].sort();
 
   const tabs = $('tabs-grupos');
@@ -79,13 +83,18 @@ async function pintarPosiciones() {
     ? Math.max(1, Math.floor(Number(config.num_clasificados || 0) / numGrupos))
     : Number(config.num_clasificados || 0);
 
-  $('tbody-posiciones').innerHTML = visibles.map((f, i) => `
+  $('tbody-posiciones').innerHTML = visibles.map((f, i) => {
+    // Se pasa el objeto del equipo completo (con escudo_url), igual que
+    // admin.js renderEquipos. Si no está en "equipos", usa la fila de la
+    // vista como respaldo.
+    const equipo = porId[f.equipo_id] || f;
+    return `
     <tr class="border-b border-slate-800/60 hover:bg-slate-800/30 ${i < clasifican ? 'bg-emerald-500/5' : ''}">
       <td class="px-3 py-3 text-slate-500">${i + 1}</td>
       <td class="px-3 py-3">
         <div class="flex items-center gap-2.5">
-          ${escudo(f, 'w-8 h-8')}
-          <span class="font-semibold">${esc(f.nombre)}</span>
+          ${escudo(equipo, 'w-8 h-8')}
+          <span class="font-semibold">${esc(equipo.nombre ?? f.nombre)}</span>
           ${i < clasifican ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">Clasifica</span>' : ''}
         </div>
       </td>
@@ -97,7 +106,8 @@ async function pintarPosiciones() {
       <td class="px-2 py-3 text-center hidden sm:table-cell">${f.gc}</td>
       <td class="px-2 py-3 text-center ${f.dg > 0 ? 'text-emerald-400' : f.dg < 0 ? 'text-rose-400' : ''}">${f.dg > 0 ? '+' : ''}${f.dg}</td>
       <td class="px-4 py-3 text-center font-black text-emerald-400">${f.puntos}</td>
-    </tr>`).join('') || '<tr><td colspan="10" class="px-3 py-8 text-center text-slate-500">Aún no hay equipos registrados.</td></tr>';
+    </tr>`;
+  }).join('') || '<tr><td colspan="10" class="px-3 py-8 text-center text-slate-500">Aún no hay equipos registrados.</td></tr>';
 }
 
 // ============ ESTADISTICAS ============
