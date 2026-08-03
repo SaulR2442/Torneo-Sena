@@ -31,7 +31,7 @@ body {
 img, video { max-width: 100%; height: auto; }
 
 a { color: var(--acento); text-decoration: none; }
-a:hover { color: var(--acento-hover); text-decoration: underline; }
+a:hover { color: var(--acento-hover); }
 
 /* Titulares deportivos estilo FIFA: Oswald en mayúsculas pesadas */
 h1, h2, h3 {
@@ -394,18 +394,42 @@ input:focus, select:focus, textarea:focus {
   background: #161b22;
 }
 
-/* Botones principales: dorado trofeo sólido con brillo al hover */
+/* ============================================================
+   BOTONES: estados hover legibles y sin subrayado
+   ============================================================ */
+
+/* Sin subrayado en ningún estado interactivo (a, button y clases de botón) */
+a:hover, a:focus, a:active,
+button:hover, button:focus, button:active {
+  text-decoration: none !important;
+}
+
+/* Botón principal dorado: texto oscuro siempre legible */
 [class~="bg-emerald-600"],
-[class~="bg-emerald-500"] {
+[class~="bg-emerald-500"],
+.btn-primary {
   background-color: #d97706;
+  color: #0b0d12;
+  font-weight: 700;
   transition: background-color .15s ease, box-shadow .15s ease, transform .15s ease;
 }
 [class~="bg-emerald-600"]:hover,
-[class~="bg-emerald-500"]:hover {
-  background-color: #f59e0b;
-  box-shadow: 0 6px 26px rgba(245, 158, 11, .4);
-  -webkit-box-shadow: 0 6px 26px rgba(245, 158, 11, .4);
-  transform: translateY(-1px);
+[class~="bg-emerald-500"]:hover,
+.btn-primary:hover {
+  background-color: #f59e0b !important;
+  color: #000000 !important;
+  text-decoration: none !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+  -webkit-box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+/* Botón secundario / outline: relleno dorado suave y texto blanco puro */
+.btn-secondary:hover {
+  background-color: rgba(212, 175, 55, 0.15) !important;
+  color: #ffffff !important;
+  border-color: #f59e0b !important;
+  text-decoration: none !important;
 }
 
 /* Botones con texto pesado: mayúsculas deportivas */
