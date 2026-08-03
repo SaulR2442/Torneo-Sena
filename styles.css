@@ -7,25 +7,56 @@
 :root {
   color-scheme: dark;
   --bg: #0b0f19;
-  --panel: #10182a;
-  --borde: #2b3a63;
-  --texto: #eef2fa;
-  --atenuado: #9fb0d4;
-  --acento: #f59e0b;
-  --acento-hover: #fbbf24;
-  --verde: #10b981;
+  --panel: rgba(15, 23, 42, .6);
+  --borde: rgba(255, 255, 255, .2);
+  --texto: #ffffff;
+  --atenuado: #c3d0ee;
+  --acento: #fbbf24;
+  --acento-hover: #fde68a;
+  --verde: #34d399;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background-color: var(--bg);
+  min-height: 100vh;
   color: var(--texto);
   font-family: 'Montserrat', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.5;
-  min-height: 100vh;
+  background-color: var(--bg);
+  background-image: linear-gradient(135deg, #059669 0%, #2563eb 50%, #7c3aed 100%) !important;
+  background-size: 200% 200%;
+  -webkit-animation: fondo-mundial 20s ease infinite;
+  animation: fondo-mundial 20s ease infinite;
+}
+@-webkit-keyframes fondo-mundial {
+  0%, 100% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+}
+@keyframes fondo-mundial {
+  0%, 100% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body {
+    -webkit-animation: none;
+    animation: none;
+  }
+}
+
+/* Destellos festivos fijos sobre el degradado (estadio de Copa) */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(45% 40% at 85% 8%, rgba(251, 191, 36, .32), transparent 60%),
+    radial-gradient(50% 45% at 12% 92%, rgba(251, 113, 133, .28), transparent 62%),
+    radial-gradient(55% 55% at 50% 105%, rgba(16, 185, 129, .30), transparent 65%);
 }
 
 img, video { max-width: 100%; height: auto; }
@@ -59,10 +90,10 @@ header.sticky {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(11, 15, 25, .9);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(245, 158, 11, .28);
+  background: rgba(11, 20, 35, .55);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, .2);
 }
 
 /* El Hero vive en su bloque normal: nada de fixed/sticky. */
@@ -76,15 +107,15 @@ header.sticky {
    destellos de estadio (Qatar/FIFA style)
    ============================================================ */
 .hero-patron {
-  background-color: #0b0f19;
+  background-color: rgba(10, 18, 30, .38);
   background-image:
-    radial-gradient(circle at 50% -25%, rgba(245, 158, 11, .16), transparent 48%),
-    radial-gradient(circle at 12% 88%, rgba(16, 185, 129, .10), transparent 42%),
-    radial-gradient(circle at 88% 78%, rgba(245, 158, 11, .08), transparent 42%),
-    repeating-linear-gradient(0deg, rgba(159, 176, 212, .05) 0 1px, transparent 1px 26px),
-    repeating-linear-gradient(90deg, rgba(159, 176, 212, .05) 0 1px, transparent 1px 26px),
-    linear-gradient(rgba(159, 176, 212, .03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(159, 176, 212, .03) 1px, transparent 1px);
+    radial-gradient(circle at 50% -25%, rgba(245, 158, 11, .22), transparent 48%),
+    radial-gradient(circle at 12% 88%, rgba(16, 185, 129, .16), transparent 42%),
+    radial-gradient(circle at 88% 78%, rgba(245, 158, 11, .14), transparent 42%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 26px),
+    linear-gradient(rgba(255, 255, 255, .03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .03) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
 }
 
@@ -133,6 +164,8 @@ table {
   border: 1px solid var(--borde);
   border-radius: .75rem;
   overflow: hidden;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
 }
 th {
   text-align: left;
@@ -188,6 +221,16 @@ input:focus, select:focus, textarea:focus {
   color: #e2e8f0;
   font-size: 0.95rem;
   word-wrap: break-word;
+}
+
+/* El reglamento público vive sobre un panel de cristal */
+.reglas-md.max-w-4xl {
+  background: rgba(15, 23, 42, .6);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
 }
 
 /* 2) Encabezados con separación amplia */
@@ -314,19 +357,35 @@ input:focus, select:focus, textarea:focus {
    Tarjetas cristal, dorado trofeo, chips de clasificación y VAR
    ============================================================ */
 
-/* Tarjetas estilo álbum: cristal translúcido + borde dorado fino.
+/* Tarjetas estilo álbum: cristal oscuro semitransparente + borde blanco
+   brillante sobre el fondo vibrante (glassmorphism).
    Selectores con mayor especificidad que las utilidades de Tailwind,
    así ganan sin importar el orden de carga. */
 .rounded-xl.border,
 .rounded-2xl.border {
-  border-color: rgba(245, 158, 11, .22);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, .6);
+  border-color: rgba(255, 255, 255, .2);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   box-shadow: 0 14px 34px rgba(0, 0, 0, .35);
   -webkit-box-shadow: 0 14px 34px rgba(0, 0, 0, .35);
 }
 .rounded-lg.border {
-  border-color: rgba(245, 158, 11, .20);
+  background: rgba(15, 23, 42, .55);
+  border-color: rgba(255, 255, 255, .18);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+/* Elementos con fondo sólido (galería, bracket, tabs, modales):
+   también se convierten en cristal para no romper con el fondo colorido */
+.rounded-xl.border[class~="bg-slate-900"],
+.rounded-2xl.border[class~="bg-slate-900"],
+.rounded-lg.border[class~="bg-slate-900"] {
+  background: rgba(15, 23, 42, .6);
+}
+.rounded-xl.border[class~="bg-slate-950"],
+.rounded-2xl.border[class~="bg-slate-950"] {
+  background: rgba(11, 15, 25, .55);
 }
 
 /* Botones principales: degradado dorado trofeo con brillo al hover */
@@ -452,17 +511,8 @@ footer.border-t {
 
 /* ============================================================
    EDICIÓN MUNDIALISTA VIBRANTE — colores, luces y vida
-   (Fiesta de Copa del Mundo en la vista pública)
-   ============================================================ */
-
-/* Luces de estadio de fondo: azules festivos, sol amarillo y césped resplandeciente */
-body {
-  background-image:
-    radial-gradient(60% 45% at 12% 0%, rgba(37, 99, 235, .16), transparent 60%),
-    radial-gradient(55% 45% at 88% 8%, rgba(245, 158, 11, .11), transparent 60%),
-    radial-gradient(65% 55% at 50% 108%, rgba(16, 185, 129, .11), transparent 62%);
-  background-attachment: fixed;
-}
+    (Fiesta de Copa del Mundo en la vista pública)
+    ============================================================ */
 
 /* Línea de título deportiva: banda tricolor al estilo de un transmisor de Copa */
 main h2::after {
