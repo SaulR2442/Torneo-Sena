@@ -1,4 +1,4 @@
-import { escudo, esc, ETIQUETAS_FASE, ORDEN_ELIMINATORIA } from './lib.js';
+import { escudo, esc, ETIQUETAS_FASE, ORDEN_ELIMINATORIA } from './lib.js?v=1.0.1';
 
 function filaEquipo(equipo, goles, ganador, empatado) {
   const cls = ganador

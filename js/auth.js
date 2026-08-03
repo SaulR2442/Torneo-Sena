@@ -1,5 +1,5 @@
-import { supabase, toast } from './lib.js';
-import { CONFIG } from './config.js';
+import { supabase, toast } from './lib.js?v=1.0.1';
+import { CONFIG } from './config.js?v=1.0.1';
 
 const $ = id => document.getElementById(id);
 

@@ -1,6 +1,6 @@
-import { supabase, escudo, esc, fmtFecha, ETIQUETAS_FASE } from './lib.js';
-import { renderBracket } from './bracket.js';
-import { CONFIG } from './config.js';
+import { supabase, escudo, esc, fmtFecha, ETIQUETAS_FASE } from './lib.js?v=1.0.1';
+import { renderBracket } from './bracket.js?v=1.0.1';
+import { CONFIG } from './config.js?v=1.0.1';
 
 // Respeta los saltos de línea sencillos del Markdown del reglamento
 marked.setOptions({ breaks: true });

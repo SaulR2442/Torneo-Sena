@@ -1,4 +1,113 @@
 /* ============================================================
+   CAPA BASE DE RESPALDO (carga prioritaria)
+   Si el CSS de Tailwind (tailwind.css) no llega a cargar, este
+   bloque garantiza un tema oscuro legible y estructura mínima.
+   Cuando tailwind.css sí carga, Tailwind gana por ir después.
+   ============================================================ */
+:root {
+  color-scheme: dark;
+  --bg: #020617;
+  --panel: #0f172a;
+  --borde: #334155;
+  --texto: #e2e8f0;
+  --atenuado: #94a3b8;
+  --acento: #10b981;
+  --acento-hover: #34d399;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--texto);
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+img, video { max-width: 100%; height: auto; }
+
+a { color: var(--acento); text-decoration: none; }
+a:hover { color: var(--acento-hover); text-decoration: underline; }
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 1.2rem 0 .6rem;
+  line-height: 1.25;
+  color: #fff;
+}
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.4rem; }
+h3 { font-size: 1.15rem; }
+
+p { margin: .6rem 0; }
+
+header, nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(2, 6, 23, .9);
+  border-bottom: 1px solid var(--borde);
+  padding: .75rem 1rem;
+}
+
+main, section {
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--panel);
+  border: 1px solid var(--borde);
+  border-radius: .75rem;
+  overflow: hidden;
+}
+th {
+  text-align: left;
+  text-transform: uppercase;
+  font-size: .75rem;
+  color: var(--atenuado);
+  border-bottom: 1px solid var(--borde);
+  padding: .75rem .6rem;
+}
+td {
+  padding: .6rem;
+  border-bottom: 1px solid #1e293b;
+  font-size: .875rem;
+}
+
+button {
+  font: inherit;
+  font-weight: 700;
+  padding: .55rem 1rem;
+  border: 1px solid var(--borde);
+  border-radius: .6rem;
+  background: #1e293b;
+  color: var(--texto);
+  cursor: pointer;
+}
+button:hover { background: #334155; }
+
+input, select, textarea {
+  font: inherit;
+  background: #1e293b;
+  border: 1px solid var(--borde);
+  border-radius: .5rem;
+  padding: .55rem .75rem;
+  color: #fff;
+  width: 100%;
+  max-width: 100%;
+}
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--acento);
+  outline-offset: 1px;
+}
+
+/* ============================================================
    TORNEO SENA - Estilos del Reglamento (contenido Markdown)
    Se aplica a .reglas-md (vista pública #reglas-contenido y
    vista previa del admin #reglas-preview)
