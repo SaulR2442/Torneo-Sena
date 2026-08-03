@@ -7,10 +7,10 @@
 :root {
   color-scheme: dark;
   --bg: #0b0f19;
-  --panel: rgba(15, 23, 42, .6);
-  --borde: rgba(255, 255, 255, .2);
+  --panel: rgba(15, 23, 42, .75);
+  --borde: rgba(255, 255, 255, .15);
   --texto: #ffffff;
-  --atenuado: #c3d0ee;
+  --atenuado: #bcd5f5;
   --acento: #fbbf24;
   --acento-hover: #fde68a;
   --verde: #34d399;
@@ -25,25 +25,14 @@ body {
   font-family: 'Montserrat', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.5;
-  background-color: var(--bg);
-  background-image: linear-gradient(135deg, #059669 0%, #2563eb 50%, #7c3aed 100%) !important;
-  background-size: 200% 200%;
-  -webkit-animation: fondo-mundial 20s ease infinite;
-  animation: fondo-mundial 20s ease infinite;
-}
-@-webkit-keyframes fondo-mundial {
-  0%, 100% { background-position: 0% 0%; }
-  50% { background-position: 100% 100%; }
-}
-@keyframes fondo-mundial {
-  0%, 100% { background-position: 0% 0%; }
-  50% { background-position: 100% 100%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  body {
-    -webkit-animation: none;
-    animation: none;
-  }
+  background-color: #0b0f19;
+  background-image:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 58, 138, 0.8) 50%, rgba(6, 78, 59, 0.85) 100%),
+    url('https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=1920&auto=format&fit=crop');
+  background-attachment: fixed;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* Destellos festivos fijos sobre el degradado (estadio de Copa) */
@@ -75,12 +64,13 @@ h1, h2, h3, h4, h5, h6 {
   margin: 1.2rem 0 .6rem;
   line-height: 1.25;
   color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, .6);
 }
 h1 { font-size: 1.75rem; }
 h2 { font-size: 1.4rem; }
 h3 { font-size: 1.15rem; }
 
-p { margin: .6rem 0; }
+p { margin: .6rem 0; color: #e2e8f0; }
 
 /* Barra superior pegajosa: SOLO los elementos que llevan la clase
    .sticky (nav de index.html / header del admin). Cualquier otro
@@ -90,10 +80,10 @@ header.sticky {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(11, 20, 35, .55);
+  background: rgba(10, 18, 32, .72);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(255, 255, 255, .2);
+  border-bottom: 1px solid rgba(255, 255, 255, .18);
 }
 
 /* El Hero vive en su bloque normal: nada de fixed/sticky. */
@@ -185,9 +175,9 @@ button {
   font: inherit;
   font-weight: 700;
   padding: .55rem 1rem;
-  border: 1px solid var(--borde);
+  border: 1px solid rgba(255, 255, 255, .15);
   border-radius: .6rem;
-  background: #1e293b;
+  background: rgba(15, 23, 42, .75);
   color: var(--texto);
   cursor: pointer;
 }
@@ -195,8 +185,8 @@ button:hover { background: #334155; }
 
 input, select, textarea {
   font: inherit;
-  background: #1e293b;
-  border: 1px solid var(--borde);
+  background: rgba(15, 23, 42, .75);
+  border: 1px solid rgba(255, 255, 255, .18);
   border-radius: .5rem;
   padding: .55rem .75rem;
   color: #fff;
@@ -225,12 +215,12 @@ input:focus, select:focus, textarea:focus {
 
 /* El reglamento público vive sobre un panel de cristal */
 .reglas-md.max-w-4xl {
-  background: rgba(15, 23, 42, .6);
-  border: 1px solid rgba(255, 255, 255, .2);
+  background: rgba(15, 23, 42, .75);
+  border: 1px solid rgba(255, 255, 255, .15);
   border-radius: 1rem;
   padding: 1.25rem;
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 /* 2) Encabezados con separación amplia */
@@ -357,35 +347,35 @@ input:focus, select:focus, textarea:focus {
    Tarjetas cristal, dorado trofeo, chips de clasificación y VAR
    ============================================================ */
 
-/* Tarjetas estilo álbum: cristal oscuro semitransparente + borde blanco
-   brillante sobre el fondo vibrante (glassmorphism).
+/* Tarjetas estilo álbum: cristal oscuro translúcido + borde brillante
+   que separa los datos de la escena del estadio (glassmorphism).
    Selectores con mayor especificidad que las utilidades de Tailwind,
    así ganan sin importar el orden de carga. */
 .rounded-xl.border,
 .rounded-2xl.border {
-  background: rgba(15, 23, 42, .6);
-  border-color: rgba(255, 255, 255, .2);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  background: rgba(15, 23, 42, .75);
+  border-color: rgba(255, 255, 255, .15);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   box-shadow: 0 14px 34px rgba(0, 0, 0, .35);
   -webkit-box-shadow: 0 14px 34px rgba(0, 0, 0, .35);
 }
 .rounded-lg.border {
-  background: rgba(15, 23, 42, .55);
-  border-color: rgba(255, 255, 255, .18);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  background: rgba(15, 23, 42, .75);
+  border-color: rgba(255, 255, 255, .15);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 /* Elementos con fondo sólido (galería, bracket, tabs, modales):
-   también se convierten en cristal para no romper con el fondo colorido */
+   también se convierten en cristal para no romper con la escena */
 .rounded-xl.border[class~="bg-slate-900"],
 .rounded-2xl.border[class~="bg-slate-900"],
 .rounded-lg.border[class~="bg-slate-900"] {
-  background: rgba(15, 23, 42, .6);
+  background: rgba(15, 23, 42, .75);
 }
 .rounded-xl.border[class~="bg-slate-950"],
 .rounded-2xl.border[class~="bg-slate-950"] {
-  background: rgba(11, 15, 25, .55);
+  background: rgba(11, 15, 25, .7);
 }
 
 /* Botones principales: degradado dorado trofeo con brillo al hover */
