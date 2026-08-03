@@ -1,4 +1,4 @@
-import { supabase, escudo, esc, fmtFecha, ETIQUETAS_FASE } from './lib.js?v=1.0.1';
+import { supabase, escudo, esc, urlPublico, iniciales, fmtFecha, ETIQUETAS_FASE } from './lib.js?v=1.0.1';
 import { renderBracket } from './bracket.js?v=1.0.1';
 import { CONFIG } from './config.js?v=1.0.1';
 
@@ -92,13 +92,14 @@ async function pintarPosiciones() {
     // vista como respaldo.
     const equipo = porId[f.equipo_id] || f;
     return `
-    <tr class="border-b border-slate-800/60 hover:bg-slate-800/30 ${i < clasifican ? 'bg-emerald-500/5' : ''}">
+    <tr class="fila-equipo border-b border-slate-800/60 hover:bg-slate-800/30 ${i < clasifican ? 'bg-emerald-500/5' : ''}" data-equipo-id="${esc(f.equipo_id)}">
       <td class="px-3 py-3 text-slate-500">${i + 1}</td>
       <td class="px-3 py-3">
         <div class="flex items-center gap-2.5">
           ${escudo(equipo, 'w-8 h-8')}
           <span class="font-semibold">${esc(equipo.nombre ?? f.nombre)}</span>
           ${i < clasifican ? '<span class="chip-clasificado">Clasificado</span>' : ''}
+          <span class="ver-plantilla">👁️ Ver plantilla</span>
         </div>
       </td>
       <td class="px-2 py-3 text-center">${f.pj}</td>
@@ -112,6 +113,11 @@ async function pintarPosiciones() {
     </tr>`;
   }).join('') || '<tr><td colspan="10" class="px-3 py-8 text-center text-slate-500">Aún no hay equipos registrados.</td></tr>';
 }
+
+$('tbody-posiciones').addEventListener('click', e => {
+  const fila = e.target.closest('tr.fila-equipo');
+  if (fila) verPlantillaEquipo(fila.dataset.equipoId);
+});
 
 // ============ ESTADISTICAS ============
 async function pintarEstadisticas() {
@@ -238,7 +244,86 @@ $('lightbox')?.addEventListener('click', () => {
   lb.classList.remove('flex');
 });
 
-// ============ REGLAS ============
+// ============ PLANTILLA DE SELECCIÓN (MODAL) ============
+const POS_CLS = {
+  Arquero: 'pos-arq',
+  Defensa: 'pos-def',
+  Centrocampista: 'pos-med',
+  Delantero: 'pos-del'
+};
+
+function tarjetaJugador(j) {
+  const foto = j.foto_url
+    ? `<img class="jugador-foto" src="${esc(urlPublico(j.foto_url))}" alt="${esc(j.nombre)}" loading="lazy">`
+    : `<span class="jugador-foto">${esc(iniciales(j.nombre))}</span>`;
+  return `
+    <div class="jugador-card">
+      <span class="jugador-numero">${j.numero ?? '—'}</span>
+      ${foto}
+      <p class="jugador-nombre">${esc(j.nombre)}</p>
+      <p class="jugador-posicion ${POS_CLS[j.posicion] || 'pos-med'}">${esc(j.posicion || 'Jugador de campo')}</p>
+    </div>`;
+}
+
+async function verPlantillaEquipo(equipoId) {
+  const equipo = equipos.find(x => x.id === equipoId) || { nombre: 'Selección' };
+  const contenido = $('modal-equipo-contenido');
+  contenido.innerHTML = '<div class="modal-vacio">Cargando plantilla…</div>';
+  abrirModalEquipo();
+
+  const { data } = await supabase
+    .from('jugadores')
+    .select('*')
+    .eq('equipo_id', equipoId)
+    .order('numero');
+
+  const jugadores = data || [];
+
+  if (!jugadores.length) {
+    contenido.innerHTML = `
+      <div class="modal-vacio">
+        <p class="modal-vacio-icono">⚽</p>
+        <p class="modal-vacio-titulo">Plantilla en preparación para el torneo</p>
+        <p class="modal-vacio-sub">Los jugadores de esta selección se estarán registrando muy pronto.</p>
+      </div>`;
+    return;
+  }
+
+  contenido.innerHTML = `
+    <header class="modal-cabecera">
+      <div class="mh-escudo">${escudo(equipo)}</div>
+      <div class="min-w-0">
+        <p class="modal-kicker">Selección oficial</p>
+        <h2 class="modal-titulo">${esc(equipo.nombre ?? 'Equipo')}</h2>
+        <p class="modal-sub">${jugadores.length} jugador${jugadores.length === 1 ? '' : 'es'} registrados</p>
+      </div>
+    </header>
+    <div class="grid-jugadores">
+      ${jugadores.map(tarjetaJugador).join('')}
+    </div>`;
+}
+
+function abrirModalEquipo() {
+  const capa = $('modal-equipo');
+  capa.classList.add('abierto');
+  capa.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-abierto');
+}
+
+function cerrarModalEquipo() {
+  const capa = $('modal-equipo');
+  capa.classList.remove('abierto');
+  capa.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('modal-abierto');
+}
+
+$('modal-equipo-cerrar')?.addEventListener('click', cerrarModalEquipo);
+$('modal-equipo')?.addEventListener('click', e => {
+  if (e.target === $('modal-equipo')) cerrarModalEquipo();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') cerrarModalEquipo();
+});
 async function pintarReglas() {
   const { data } = await supabase.from('reglas').select('*').limit(1);
   const contenido = data?.[0]?.contenido;

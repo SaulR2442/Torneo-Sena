@@ -451,6 +451,333 @@ footer.border-t {
 }
 
 /* ============================================================
+   EDICIÓN MUNDIALISTA VIBRANTE — colores, luces y vida
+   (Fiesta de Copa del Mundo en la vista pública)
+   ============================================================ */
+
+/* Luces de estadio de fondo: azules festivos, sol amarillo y césped resplandeciente */
+body {
+  background-image:
+    radial-gradient(60% 45% at 12% 0%, rgba(37, 99, 235, .16), transparent 60%),
+    radial-gradient(55% 45% at 88% 8%, rgba(245, 158, 11, .11), transparent 60%),
+    radial-gradient(65% 55% at 50% 108%, rgba(16, 185, 129, .11), transparent 62%);
+  background-attachment: fixed;
+}
+
+/* Línea de título deportiva: banda tricolor al estilo de un transmisor de Copa */
+main h2::after {
+  content: '';
+  display: block;
+  width: 68px;
+  height: 4px;
+  margin-top: .4rem;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #2563eb, #10b981, #f59e0b);
+  box-shadow: 0 0 12px rgba(245, 158, 11, .35);
+  -webkit-box-shadow: 0 0 12px rgba(245, 158, 11, .35);
+}
+
+/* Barrido de luz de estadio sobre el Hero */
+#inicio::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .045) 45%, rgba(245, 158, 11, .06) 50%, rgba(255, 255, 255, .045) 55%, transparent 70%);
+  background-size: 220% 100%;
+  -webkit-animation: barrido-luz 9s linear infinite;
+  animation: barrido-luz 9s linear infinite;
+}
+@-webkit-keyframes barrido-luz {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+@keyframes barrido-luz {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+
+/* Chip "Clasificado" con pulso de neón */
+.chip-clasificado {
+  -webkit-animation: chip-pulso 2.6s ease-in-out infinite;
+  animation: chip-pulso 2.6s ease-in-out infinite;
+}
+@-webkit-keyframes chip-pulso {
+  0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, .25); }
+  50% { box-shadow: 0 0 16px rgba(16, 185, 129, .55); }
+}
+@keyframes chip-pulso {
+  0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, .25); }
+  50% { box-shadow: 0 0 16px rgba(16, 185, 129, .55); }
+}
+
+/* ============================================================
+   FILAS DE LA TABLA: selección cliqueable con brillo
+   ============================================================ */
+.fila-equipo {
+  cursor: pointer;
+  transition: background-color .18s ease, box-shadow .18s ease;
+}
+tr.fila-equipo:hover {
+  background: rgba(37, 99, 235, .10);
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.ver-plantilla {
+  display: none;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, .10);
+  border: 1px solid rgba(245, 158, 11, .30);
+  border-radius: .35rem;
+  padding: .12rem .5rem;
+  white-space: nowrap;
+  opacity: .6;
+  transition: opacity .18s ease;
+}
+tr.fila-equipo:hover .ver-plantilla {
+  opacity: 1;
+}
+@media (min-width: 640px) {
+  .ver-plantilla { display: inline-block; }
+}
+
+/* ============================================================
+   MODAL: PLANTILLA DE SELECCIÓN (ficha coleccionable)
+   ============================================================ */
+.modal-capa {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(2, 6, 23, .72);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .22s ease, visibility .22s;
+}
+.modal-capa.abierto {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-caja {
+  position: relative;
+  width: min(680px, 100%);
+  max-height: 88vh;
+  max-height: 88dvh;
+  overflow-y: auto;
+  border-radius: 1.1rem;
+  padding: 1.4rem;
+  background: linear-gradient(165deg, #101a33 0%, #0b0f19 62%);
+  border: 1px solid rgba(245, 158, 11, .45);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .6), 0 0 40px rgba(245, 158, 11, .18);
+  -webkit-box-shadow: 0 30px 80px rgba(0, 0, 0, .6), 0 0 40px rgba(245, 158, 11, .18);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transform: translateY(16px) scale(.97);
+  transition: transform .22s ease;
+}
+.modal-capa.abierto .modal-caja {
+  transform: none;
+}
+.modal-caja::-webkit-scrollbar { width: 8px; }
+.modal-caja::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, .35);
+  border-radius: 4px;
+}
+.modal-abierto { overflow: hidden; }
+
+.modal-cerrar {
+  position: absolute;
+  top: .75rem;
+  right: .9rem;
+  z-index: 2;
+  width: 2.1rem;
+  height: 2.1rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 1.3rem;
+  line-height: 1;
+  border-radius: 9999px;
+  border: 1px solid rgba(245, 158, 11, .45);
+  background: rgba(11, 15, 25, .7);
+  color: #fbbf24;
+  cursor: pointer;
+  transition: box-shadow .15s ease, background-color .15s ease;
+}
+.modal-cerrar:hover {
+  background: rgba(245, 158, 11, .15);
+  box-shadow: 0 0 14px rgba(245, 158, 11, .35);
+  -webkit-box-shadow: 0 0 14px rgba(245, 158, 11, .35);
+}
+
+/* Cabecera tipo ficha técnica */
+.modal-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1.1rem;
+  border-bottom: 1px dashed rgba(245, 158, 11, .3);
+}
+.mh-escudo { flex-shrink: 0; }
+.mh-escudo img,
+.mh-escudo span {
+  width: 84px !important;
+  height: 84px !important;
+  font-size: 1.5rem !important;
+  border: 2px solid rgba(245, 158, 11, .55);
+  box-shadow: 0 0 22px rgba(245, 158, 11, .35);
+  -webkit-box-shadow: 0 0 22px rgba(245, 158, 11, .35);
+}
+.modal-kicker {
+  margin: 0;
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  color: #fbbf24;
+}
+.modal-titulo {
+  margin: .15rem 0 0;
+  font-family: 'Oswald', 'Montserrat', sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  font-size: 1.5rem;
+  color: #fff;
+  line-height: 1.1;
+}
+.modal-sub {
+  margin: .35rem 0 0;
+  font-size: .8rem;
+  color: var(--atenuado);
+}
+
+/* Rejilla de tarjetas de jugadores */
+.grid-jugadores {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.jugador-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: .9rem;
+  padding: .85rem .6rem;
+  text-align: center;
+  background:
+    linear-gradient(150deg, rgba(37, 99, 235, .14), transparent 45%),
+    linear-gradient(180deg, #141d38, #0e1526);
+  border: 1px solid rgba(37, 99, 235, .35);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.jugador-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -80%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, .07), transparent);
+  transform: skewX(-18deg);
+  transition: left .5s ease;
+  pointer-events: none;
+}
+.jugador-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(245, 158, 11, .6);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .45), 0 0 16px rgba(245, 158, 11, .2);
+  -webkit-box-shadow: 0 8px 22px rgba(0, 0, 0, .45), 0 0 16px rgba(245, 158, 11, .2);
+}
+.jugador-card:hover::after { left: 130%; }
+
+.jugador-numero {
+  position: absolute;
+  top: .45rem;
+  right: .65rem;
+  font-family: 'Oswald', sans-serif;
+  font-weight: 800;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: rgba(245, 158, 11, .25);
+  pointer-events: none;
+}
+
+.jugador-foto {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto .6rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #1a2440;
+  border: 2px solid rgba(245, 158, 11, .5);
+  box-shadow: 0 0 12px rgba(245, 158, 11, .25);
+  -webkit-box-shadow: 0 0 12px rgba(245, 158, 11, .25);
+  font-family: 'Oswald', sans-serif;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: #fbbf24;
+}
+
+.jugador-nombre {
+  margin: 0;
+  font-weight: 700;
+  font-size: .9rem;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.jugador-posicion {
+  margin: .2rem 0 0;
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--atenuado);
+}
+.pos-arq { color: #34d399; }
+.pos-def { color: #60a5fa; }
+.pos-med { color: #fbbf24; }
+.pos-del { color: #fb923c; }
+
+/* Estado vacío de la plantilla */
+.modal-vacio {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--atenuado);
+}
+.modal-vacio-icono {
+  font-size: 2.6rem;
+  margin: 0 0 .5rem;
+}
+.modal-vacio-titulo {
+  margin: 0;
+  font-family: 'Oswald', 'Montserrat', sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  font-size: 1.05rem;
+  color: #fbbf24;
+}
+.modal-vacio-sub {
+  margin: .5rem 0 0;
+  font-size: .85rem;
+}
+
+/* ============================================================
    COMPATIBILIDAD iOS / WEBKIT (Safari y Chrome para iPhone)
    ============================================================ */
 
