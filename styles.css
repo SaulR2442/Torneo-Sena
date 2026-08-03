@@ -126,3 +126,79 @@
   max-width: 100%;
   border-radius: 8px;
 }
+
+/* ============================================================
+   COMPATIBILIDAD iOS / WEBKIT (Safari y Chrome para iPhone)
+   ============================================================ */
+
+/* 1) Alturas: fallback 100dvh para la barra de navegación de iOS.
+      Los navegadores viejos usan 100vh; Safari 15.4+/iOS 16 usa dvh. */
+html,
+body {
+  min-height: 100vh;
+}
+html,
+body {
+  min-height: 100dvh;
+}
+body.min-h-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Evita el inflado de texto al girar el iPhone en landscape */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* 2) Flex/Grid en Safari: min-width: 0 en los ítems evita que
+      nombres largos o imágenes estiren el contenedor hacia los
+      lados y desborden la pantalla. */
+.flex > *,
+.grid > * {
+  min-width: 0;
+}
+
+/* Nota: `gap` en Flexbox requiere Safari iOS 14.1+ (marzo 2021).
+   Los iPhone actuales usan iOS 16+, así que no se requieren
+   márgenes de respaldo. En Grid, `gap` funciona desde iOS 10.3. */
+
+/* 3) Desplazamiento horizontal suave en tablas, bracket y menús */
+.overflow-x-auto,
+.overflow-y-auto,
+.overflow-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+/* 4) Efecto cristal: Tailwind v3 ya emite -webkit-backdrop-filter,
+      pero se refuerza porque Safari iOS requiere el prefijo. */
+.backdrop-blur,
+.backdrop-blur-sm,
+.backdrop-blur-md,
+.backdrop-blur-lg {
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Quita el brillo azul del toque y la selección en botones */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+[role="button"],
+.tab-btn {
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* 5) Prevención de auto-zoom de iOS: cualquier campo con
+      font-size menor a 16px dispara zoom al enfocar. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
