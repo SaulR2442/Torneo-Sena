@@ -1,4 +1,4 @@
-import { supabase, escudo, fmtFecha, ETIQUETAS_FASE } from './lib.js';
+import { supabase, escudo, esc, fmtFecha, ETIQUETAS_FASE } from './lib.js';
 import { renderBracket } from './bracket.js';
 import { CONFIG } from './config.js';
 
@@ -68,6 +68,8 @@ async function pintarPosiciones() {
     });
   }
 
+  if (grupos.length > 1 && !grupos.includes(grupoActivo)) grupoActivo = 'TODOS';
+
   const visibles = filas
     .filter(f => grupoActivo === 'TODOS' || f.grupo === grupoActivo)
     .sort((a, b) => b.puntos - a.puntos || b.dg - a.dg || b.gf - a.gf || a.nombre.localeCompare(b.nombre));
@@ -82,8 +84,8 @@ async function pintarPosiciones() {
       <td class="px-3 py-3 text-slate-500">${i + 1}</td>
       <td class="px-3 py-3">
         <div class="flex items-center gap-2.5">
-          ${escudo({ escudo_url: null, nombre: f.nombre })}
-          <span class="font-semibold">${f.nombre}</span>
+          ${escudo({ escudo_url: f.escudo_url, nombre: f.nombre })}
+          <span class="font-semibold">${esc(f.nombre)}</span>
           ${i < clasifican ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">Clasifica</span>' : ''}
         </div>
       </td>
@@ -96,8 +98,6 @@ async function pintarPosiciones() {
       <td class="px-2 py-3 text-center ${f.dg > 0 ? 'text-emerald-400' : f.dg < 0 ? 'text-rose-400' : ''}">${f.dg > 0 ? '+' : ''}${f.dg}</td>
       <td class="px-4 py-3 text-center font-black text-emerald-400">${f.puntos}</td>
     </tr>`).join('') || '<tr><td colspan="10" class="px-3 py-8 text-center text-slate-500">Aún no hay equipos registrados.</td></tr>';
-
-  if (grupos.length > 1 && !grupos.includes(grupoActivo)) grupoActivo = 'TODOS';
 }
 
 // ============ ESTADISTICAS ============
@@ -111,8 +111,8 @@ async function pintarEstadisticas() {
       <li class="flex items-center justify-between gap-2">
         <span class="flex items-center gap-2 min-w-0">
           <span class="text-slate-600 font-bold w-4 shrink-0">${i + 1}</span>
-          <span class="truncate">${j.jugador}</span>
-          <span class="text-[10px] text-slate-500 truncate">${j.equipo}</span>
+          <span class="truncate">${esc(j.jugador)}</span>
+          <span class="text-[10px] text-slate-500 truncate">${esc(j.equipo)}</span>
         </span>
         <span class="font-black text-emerald-400 shrink-0">${j[campo]}</span>
       </li>`).join('');
@@ -145,7 +145,7 @@ async function pintarPartidos() {
     }
     const fila = (equipo, goles, g) => `
       <div class="flex items-center justify-between gap-2 py-1.5 ${g ? 'font-bold text-emerald-300' : ''}">
-        <span class="flex items-center gap-2 min-w-0">${escudo(equipo, 'w-6 h-6')}<span class="truncate">${equipo?.nombre ?? 'Pendiente'}</span>${g ? ' ✓' : ''}</span>
+        <span class="flex items-center gap-2 min-w-0">${escudo(equipo, 'w-6 h-6')}<span class="truncate">${esc(equipo?.nombre ?? 'Pendiente')}</span>${g ? ' ✓' : ''}</span>
         <span class="font-black">${equipo ? (goles ?? 0) : ''}</span>
       </div>`;
     return `
@@ -190,8 +190,8 @@ async function pintarGaleria() {
   (respPartidos.data || []).forEach(p => { etiquetaPartido[p.id] = ETIQUETAS_FASE[p.fase] ?? p.fase; });
   $('galeria-grid').innerHTML = items.map(i => {
     const pie = `<div class="p-2">
-        ${i.titulo ? `<p class="text-xs font-semibold truncate">${i.titulo}</p>` : ''}
-        ${i.partido_id && etiquetaPartido[i.partido_id] ? `<p class="text-[10px] text-slate-500 truncate">${etiquetaPartido[i.partido_id]}</p>` : ''}
+        ${i.titulo ? `<p class="text-xs font-semibold truncate">${esc(i.titulo)}</p>` : ''}
+        ${i.partido_id && etiquetaPartido[i.partido_id] ? `<p class="text-[10px] text-slate-500 truncate">${esc(etiquetaPartido[i.partido_id])}</p>` : ''}
       </div>`;
     if (i.tipo === 'video') {
       return `<figure class="rounded-xl overflow-hidden border border-slate-800 bg-slate-900">

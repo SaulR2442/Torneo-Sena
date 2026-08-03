@@ -1,4 +1,4 @@
-import { escudo, ETIQUETAS_FASE, ORDEN_ELIMINATORIA } from './lib.js';
+import { escudo, esc, ETIQUETAS_FASE, ORDEN_ELIMINATORIA } from './lib.js';
 
 function filaEquipo(equipo, goles, ganador, empatado) {
   const cls = ganador
@@ -10,7 +10,7 @@ function filaEquipo(equipo, goles, ganador, empatado) {
     <div class="flex items-center justify-between gap-2 px-2 py-1.5 ${cls}">
       <span class="flex items-center gap-2 min-w-0">
         ${escudo(equipo, 'w-5 h-5')}
-        <span class="truncate text-xs">${equipo?.nombre ?? 'Clasificado'}</span>
+        <span class="truncate text-xs">${esc(equipo?.nombre ?? 'Clasificado')}</span>
         ${ganador ? '<span class="text-emerald-400">→</span>' : ''}
       </span>
       <span class="font-bold text-xs shrink-0">${equipo ? (goles ?? 0) : ''}</span>
@@ -47,13 +47,13 @@ function tarjetaEditable(p, equipos, onSave) {
     <div class="flex items-center gap-1.5 mb-1">
       <select data-campo="equipo_local_id" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-xs text-white">
         <option value="">Local…</option>
-        ${equipos.map(e => `<option value="${e.id}" ${e.id === p.equipo_local_id ? 'selected' : ''}>${e.nombre}</option>`).join('')}
+        ${equipos.map(e => `<option value="${esc(e.id)}" ${e.id === p.equipo_local_id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}
       </select>
     </div>
     <div class="flex items-center gap-1.5 mb-1">
       <select data-campo="equipo_visitante_id" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-xs text-white">
         <option value="">Visitante…</option>
-        ${equipos.map(e => `<option value="${e.id}" ${e.id === p.equipo_visitante_id ? 'selected' : ''}>${e.nombre}</option>`).join('')}
+        ${equipos.map(e => `<option value="${esc(e.id)}" ${e.id === p.equipo_visitante_id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}
       </select>
     </div>
     <div class="flex items-center gap-1.5">

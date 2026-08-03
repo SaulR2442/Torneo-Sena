@@ -1,4 +1,4 @@
-import { supabase, toast, confirmar, subirArchivo, esVideo, cargando, escudo, fmtFecha, ETIQUETAS_FASE, ORDEN_ELIMINATORIA, opcionesSelect } from './lib.js';
+import { supabase, toast, confirmar, subirArchivo, subirEscudo, esVideo, cargando, escudo, esc, fmtFecha, ETIQUETAS_FASE, ORDEN_ELIMINATORIA, opcionesSelect } from './lib.js';
 import { renderBracket } from './bracket.js';
 import { CONFIG } from './config.js';
 
@@ -89,7 +89,7 @@ async function renderEquipos() {
       <div class="flex items-center gap-3 mb-3">
         ${escudo(e, 'w-12 h-12')}
         <div class="min-w-0">
-          <p class="font-bold truncate">${e.nombre}</p>
+          <p class="font-bold truncate">${esc(e.nombre)}</p>
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -123,7 +123,9 @@ $('form-equipo').addEventListener('submit', async e => {
   let escudo_url = null;
   if (file) {
     try {
-      escudo_url = await subirArchivo(file, 'escudos');
+      // Se guarda la ruta relativa ("escudos/xxxx.jpg"); el renderizado
+      // genera la URL pública con urlPublico()/getPublicUrl().
+      escudo_url = await subirEscudo(file);
     } catch {
       toast('No se pudo subir el escudo', 'error');
       return;
@@ -153,7 +155,8 @@ $('btn-cancelar-equipo').addEventListener('click', () => {
 // ============================================================
 // JUGADORES
 // ============================================================
-function renderJugadores() {
+async function renderJugadores() {
+  await cargarBase();
   $('jug-equipo').innerHTML = opcionesSelect(state.equipos, $('jug-equipo').value || '', 'Selecciona un equipo…');
   const equipoId = $('jug-equipo').value;
   const lista = $('lista-jugadores');
@@ -164,7 +167,7 @@ function renderJugadores() {
   const jugadores = state.jugadores.filter(j => j.equipo_id === equipoId);
   const equipo = state.equipos.find(x => x.id === equipoId);
   if (!jugadores.length) {
-    lista.innerHTML = `<p class="text-slate-500 text-sm">${equipo?.nombre} aún no tiene jugadores registrados.</p>`;
+    lista.innerHTML = `<p class="text-slate-500 text-sm">${esc(equipo?.nombre)} aún no tiene jugadores registrados.</p>`;
     return;
   }
   lista.innerHTML = `
@@ -175,8 +178,8 @@ function renderJugadores() {
         </tr></thead>
         <tbody>${jugadores.map(j => `
           <tr class="border-b border-slate-800/50">
-            <td class="px-3 py-2.5"><div class="flex items-center gap-2.5">${escudo({ escudo_url: j.foto_url, nombre: j.nombre }, 'w-8 h-8')}<span class="font-semibold">${j.nombre}</span></div></td>
-            <td class="px-3 py-2.5 text-slate-400">${j.posicion || '—'}</td>
+            <td class="px-3 py-2.5"><div class="flex items-center gap-2.5">${escudo({ escudo_url: j.foto_url, nombre: j.nombre }, 'w-8 h-8')}<span class="font-semibold">${esc(j.nombre)}</span></div></td>
+            <td class="px-3 py-2.5 text-slate-400">${esc(j.posicion || '—')}</td>
             <td class="px-3 py-2.5 text-center">${j.numero || '—'}</td>
             <td class="px-3 py-2.5 text-right">
               <button data-editar="${j.id}" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700">Editar</button>
@@ -285,8 +288,8 @@ function renderListaGoleadores() {
     return `
       <li class="flex items-center gap-2">
         <span class="text-emerald-400 font-black">⚽</span>
-        <span class="font-semibold">${j?.nombre ?? '?'}</span>
-        <span class="text-slate-500 text-xs truncate">${equipoNombre(j?.equipo_id)}</span>
+        <span class="font-semibold">${esc(j?.nombre ?? '?')}</span>
+        <span class="text-slate-500 text-xs truncate">${esc(equipoNombre(j?.equipo_id))}</span>
         <span class="ml-auto font-black text-emerald-400">${g.goles} gol${g.goles !== 1 ? 'es' : ''}</span>
         <button type="button" data-quitar="${i}" class="text-xs px-2 py-1 rounded bg-rose-600/10 text-rose-400 hover:bg-rose-600/20">Quitar</button>
       </li>`;
@@ -362,10 +365,10 @@ async function cargarArbitraje(partidoId) {
   (data || []).forEach(r => { arbitrajeEstado[r.jugador_id] = r.pagado; });
 }
 
-async function guardarGoleadores(partidoId) {
+async function guardarGoleadores(partidoId, lista = goleadoresSel) {
   const idsEquipos = [$('par-local').value, $('par-visitante').value].filter(Boolean);
   if (!idsEquipos.length) return;
-  const filas = goleadoresSel.map(g => {
+  const filas = lista.map(g => {
     const jugador = state.jugadores.find(j => j.id === g.jugador_id);
     return {
       partido_id: partidoId,
@@ -379,8 +382,7 @@ async function guardarGoleadores(partidoId) {
   const { data: existentes } = await supabase.from('estadisticas').select('jugador_id, goles, equipo_id').eq('partido_id', partidoId);
   const quitar = (existentes || []).filter(r =>
     (r.goles || 0) > 0 &&
-    idsEquipos.includes(r.equipo_id) &&
-    !goleadoresSel.some(g => g.jugador_id === r.jugador_id)
+    !lista.some(g => g.jugador_id === r.jugador_id)
   );
   if (quitar.length) {
     await supabase.from('estadisticas').update({ goles: 0 })
@@ -407,10 +409,12 @@ async function renderPartidos() {
   $('par-local').innerHTML = opcionesSelect(state.equipos);
   $('par-visitante').innerHTML = opcionesSelect(state.equipos);
   const filtro = $('filtro-partidos');
+  const filtroActual = filtro.value;
   filtro.innerHTML = '<option value="">Todos</option>' +
     Object.entries(ETIQUETAS_FASE).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+  if (filtroActual) filtro.value = filtroActual;
   const lista = $('lista-partidos');
-  const visibles = state.partidos.filter(p => !filtro.value || p.fase === filtro.value);
+  const visibles = state.partidos.filter(p => !filtroActual || p.fase === filtroActual);
   if (!visibles.length) {
     lista.innerHTML = '<p class="text-slate-500 text-sm">No hay partidos registrados.</p>';
     return;
@@ -421,7 +425,7 @@ async function renderPartidos() {
       <div class="min-w-0">
         <p class="text-[10px] uppercase tracking-wider text-slate-500">${ETIQUETAS_FASE[p.fase] ?? p.fase} · ${fmtFecha(p.fecha)}</p>
         <p class="text-sm font-semibold mt-0.5">
-          ${porId[p.equipo_local_id]?.nombre ?? 'Pendiente'} <span class="text-slate-500">vs</span> ${porId[p.equipo_visitante_id]?.nombre ?? 'Pendiente'}
+          ${esc(porId[p.equipo_local_id]?.nombre ?? 'Pendiente')} <span class="text-slate-500">vs</span> ${esc(porId[p.equipo_visitante_id]?.nombre ?? 'Pendiente')}
         </p>
       </div>
       <div class="ml-auto flex items-center gap-2">
@@ -464,12 +468,18 @@ $('form-partido').addEventListener('submit', async e => {
   e.preventDefault();
   const id = $('par-id').value || null;
   const jugado = $('par-jugado').checked;
+  const localId = $('par-local').value || null;
+  const visitanteId = $('par-visitante').value || null;
+  if (localId && localId === visitanteId) {
+    toast('Un equipo no puede jugar contra sí mismo', 'error');
+    return;
+  }
   const datos = {
     fase: $('par-fase').value,
     fecha: $('par-fecha').value ? new Date(`${$('par-fecha').value}T12:00:00`).toISOString() : null,
     sede: $('par-sede').value.trim() || 'SENA',
-    equipo_local_id: $('par-local').value || null,
-    equipo_visitante_id: $('par-visitante').value || null,
+    equipo_local_id: localId,
+    equipo_visitante_id: visitanteId,
     goles_local: Number($('par-goles-local').value || 0),
     goles_visitante: Number($('par-goles-visitante').value || 0),
     jugado
@@ -489,7 +499,9 @@ $('form-partido').addEventListener('submit', async e => {
     if (error) { toast('Error al guardar partido: ' + error.message, 'error'); return; }
     partidoId = data.id;
   }
-  await guardarGoleadores(partidoId);
+  // Los goles individuales solo aplican a partidos jugados; si se
+  // desmarcó "jugado", se limpian para no inflar el ranking.
+  await guardarGoleadores(partidoId, jugado ? goleadoresSel : []);
   await guardarArbitraje(partidoId);
   toast(id ? 'Partido actualizado' : 'Partido registrado');
   resetFormPartido();
@@ -529,16 +541,17 @@ async function renderEliminatoria() {
 
 $('btn-generar-cuadro').addEventListener('click', async () => {
   const N = Number($('elim-clasificados').value);
-  if (!(await confirmar(
-    `Se generará un cuadro de ${N} equipos. Esto BORRARÁ los partidos de eliminatoria actuales (no toca la fase de Todos contra Todos). ¿Continuar?`,
-    'Generar cuadro eliminatorio'
-  ))) return;
   const plantilla = {
     4: [['semifinal', 2], ['final', 1]],
     8: [['cuartos', 4], ['semifinal', 2], ['final', 1]],
     16: [['octavos', 8], ['cuartos', 4], ['semifinal', 2], ['final', 1]],
     32: [['dieciseisavos', 16], ['octavos', 8], ['cuartos', 4], ['semifinal', 2], ['final', 1]]
   }[N];
+  if (!plantilla) { toast('Cantidad de clasificados no válida', 'error'); return; }
+  if (!(await confirmar(
+    `Se generará un cuadro de ${N} equipos. Esto BORRARÁ los partidos de eliminatoria actuales (no toca la fase de Todos contra Todos). ¿Continuar?`,
+    'Generar cuadro eliminatorio'
+  ))) return;
   const filas = [];
   plantilla.forEach(([fase, n]) => {
     for (let i = 1; i <= n; i++) {
@@ -547,7 +560,7 @@ $('btn-generar-cuadro').addEventListener('click', async () => {
   });
   filas.push({ fase: 'tercer_lugar', posicion_bracket: 1, goles_local: 0, goles_visitante: 0, jugado: false });
 
-  await supabase.from('partidos').delete().neq('fase', 'grupos');
+  await supabase.from('partidos').delete().or('fase.neq.grupos,fase.is.null');
   await supabase.from('config').update({ valor: String(N) }).eq('clave', 'num_clasificados');
   const { error } = await supabase.from('partidos').insert(filas);
   if (error) { toast('Error al generar el cuadro: ' + error.message, 'error'); return; }
@@ -556,6 +569,10 @@ $('btn-generar-cuadro').addEventListener('click', async () => {
 });
 
 async function guardarEliminatoria(id, datos) {
+  if (datos.equipo_local_id && datos.equipo_local_id === datos.equipo_visitante_id) {
+    toast('Un equipo no puede jugar contra sí mismo', 'error');
+    return;
+  }
   const { data: partido, error } = await supabase.from('partidos').update(datos).eq('id', id).select().single();
   if (error) { toast('Error al guardar: ' + error.message, 'error'); return; }
   if (!datos.jugado || !datos.equipo_local_id || !datos.equipo_visitante_id) {
@@ -608,10 +625,12 @@ async function actualizarTercerLugar() {
 async function renderEstadisticas() {
   await cargarBase();
   const porId = Object.fromEntries(state.equipos.map(e => [e.id, e]));
+  const seleccion = $('est-partido').value;
   $('est-partido').innerHTML = `<option value="">Selecciona un partido…</option>` + state.partidos
     .filter(p => p.jugado)
-    .map(p => `<option value="${p.id}">${porId[p.equipo_local_id]?.nombre ?? '?'} ${p.goles_local}-${p.goles_visitante} ${porId[p.equipo_visitante_id]?.nombre ?? '?'} · ${ETIQUETAS_FASE[p.fase] ?? p.fase}</option>`)
+    .map(p => `<option value="${p.id}">${esc(porId[p.equipo_local_id]?.nombre ?? '?')} ${p.goles_local}-${p.goles_visitante} ${esc(porId[p.equipo_visitante_id]?.nombre ?? '?')} · ${ETIQUETAS_FASE[p.fase] ?? p.fase}</option>`)
     .join('');
+  if (seleccion && state.partidos.some(p => p.id === seleccion)) $('est-partido').value = seleccion;
   cargarEstadisticasPartido();
 
   const { data: ranking } = await supabase.from('ranking_jugadores').select('*');
@@ -619,8 +638,8 @@ async function renderEstadisticas() {
     .sort((a, b) => b.goles - a.goles || b.asistencias - a.asistencias || a.jugador.localeCompare(b.jugador))
     .map(j => `
       <tr class="border-b border-slate-800/50">
-        <td class="px-3 py-2.5 font-semibold">${j.jugador} ${j.numero ? `<span class="text-slate-500 text-xs">#${j.numero}</span>` : ''}</td>
-        <td class="px-3 py-2.5 text-slate-400">${j.equipo}</td>
+        <td class="px-3 py-2.5 font-semibold">${esc(j.jugador)} ${j.numero ? `<span class="text-slate-500 text-xs">#${j.numero}</span>` : ''}</td>
+        <td class="px-3 py-2.5 text-slate-400">${esc(j.equipo)}</td>
         <td class="px-3 py-2.5 text-center font-bold text-emerald-400">${j.goles}</td>
         <td class="px-3 py-2.5 text-center">${j.asistencias}</td>
       </tr>`).join('') || '<tr><td colspan="4" class="px-3 py-8 text-center text-slate-500">Sin estadísticas registradas aún.</td></tr>';
@@ -721,10 +740,11 @@ $('btn-guardar-reglas').addEventListener('click', async () => {
 // GALERIA
 // ============================================================
 async function renderGaleriaAdmin() {
+  await cargarBase();
   const porId = Object.fromEntries(state.partidos.map(p => [p.id, p]));
   const equipoId = Object.fromEntries(state.equipos.map(e => [e.id, e.nombre]));
   $('gal-partido').innerHTML = '<option value="">Ninguno</option>' + state.partidos
-    .map(p => `<option value="${p.id}">${equipoId[p.equipo_local_id] ?? '?'} vs ${equipoId[p.equipo_visitante_id] ?? '?'} · ${ETIQUETAS_FASE[p.fase] ?? ''}</option>`)
+    .map(p => `<option value="${p.id}">${esc(equipoId[p.equipo_local_id] ?? '?')} vs ${esc(equipoId[p.equipo_visitante_id] ?? '?')} · ${ETIQUETAS_FASE[p.fase] ?? ''}</option>`)
     .join('');
   const { data } = await supabase.from('galeria').select('*').order('creado_en', { ascending: false });
   const items = data || [];
@@ -736,11 +756,11 @@ async function renderGaleriaAdmin() {
   grid.innerHTML = items.map(i => `
     <div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-900">
       ${i.tipo === 'video'
-        ? `<video src="${i.archivo_url}" controls preload="metadata" class="w-full aspect-video object-cover bg-black"></video>`
-        : `<img src="${i.archivo_url}" loading="lazy" class="w-full aspect-square object-cover">`}
+        ? `<video src="${esc(i.archivo_url)}" controls preload="metadata" class="w-full aspect-video object-cover bg-black"></video>`
+        : `<img src="${esc(i.archivo_url)}" loading="lazy" class="w-full aspect-square object-cover">`}
       <div class="p-2.5 flex items-center gap-2">
         <div class="min-w-0 flex-1">
-          <p class="text-xs font-semibold truncate">${i.titulo || 'Sin título'}</p>
+          <p class="text-xs font-semibold truncate">${esc(i.titulo || 'Sin título')}</p>
           <p class="text-[10px] text-slate-500 truncate">${porId[i.partido_id] ? (ETIQUETAS_FASE[porId[i.partido_id].fase] ?? '') : 'General'}</p>
         </div>
         <button data-eliminar="${i.id}" class="text-[10px] px-2 py-1 rounded bg-rose-600/10 text-rose-400 hover:bg-rose-600/20 shrink-0">Eliminar</button>

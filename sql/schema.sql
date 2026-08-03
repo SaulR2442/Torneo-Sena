@@ -150,7 +150,7 @@ set search_path = public
 as $$
   select exists (
     select 1 from public.administradores
-    where email = (auth.jwt() ->> 'email')
+    where lower(email) = lower((auth.jwt() ->> 'email'))
   );
 $$;
 
@@ -159,6 +159,8 @@ grant execute on function public.es_admin() to authenticated;
 -- ============================================================
 -- SEGURIDAD: NIVEL DE FILA (RLS)
 -- Lectura pública total / Escritura solo administradores
+-- Nota: cada política se elimina antes de crearse para que el
+-- script pueda re-ejecutarse sin errores ("policy already exists").
 -- ============================================================
 alter table public.administradores enable row level security;
 alter table public.equipos enable row level security;
@@ -170,42 +172,64 @@ alter table public.galeria enable row level security;
 alter table public.reglas enable row level security;
 alter table public.config enable row level security;
 
+drop policy if exists "lectura publica administradores" on public.administradores;
+drop policy if exists "admin administradores" on public.administradores;
 create policy "lectura publica administradores" on public.administradores for select to anon, authenticated using (true);
 create policy "admin administradores" on public.administradores for all to authenticated using (public.es_admin()) with check (public.es_admin());
 
+drop policy if exists "lectura publica equipos" on public.equipos;
+drop policy if exists "admin equipos" on public.equipos;
 create policy "lectura publica equipos" on public.equipos for select to anon, authenticated using (true);
 create policy "admin equipos" on public.equipos for all to authenticated using (public.es_admin()) with check (public.es_admin());
 
+drop policy if exists "lectura publica jugadores" on public.jugadores;
+drop policy if exists "admin jugadores" on public.jugadores;
 create policy "lectura publica jugadores" on public.jugadores for select to anon, authenticated using (true);
 create policy "admin jugadores" on public.jugadores for all to authenticated using (public.es_admin()) with check (public.es_admin());
 
+drop policy if exists "lectura publica partidos" on public.partidos;
+drop policy if exists "admin partidos" on public.partidos;
 create policy "lectura publica partidos" on public.partidos for select to anon, authenticated using (true);
 create policy "admin partidos" on public.partidos for all to authenticated using (public.es_admin()) with check (public.es_admin());
 
+drop policy if exists "lectura publica estadisticas" on public.estadisticas;
+drop policy if exists "admin estadisticas" on public.estadisticas;
 create policy "lectura publica estadisticas" on public.estadisticas for select to anon, authenticated using (true);
 create policy "admin estadisticas" on public.estadisticas for all to authenticated using (public.es_admin()) with check (public.es_admin());
 
+drop policy if exists "lectura publica arbitraje" on public.arbitraje_partidos;
+drop policy if exists "admin arbitraje" on public.arbitraje_partidos;
 create policy "lectura publica arbitraje" on public.arbitraje_partidos for select to anon, authenticated using (true);
 create policy "admin arbitraje" on public.arbitraje_partidos for all to authenticated using (public.es_admin()) with check (public.es_admin());
 
+drop policy if exists "lectura publica galeria" on public.galeria;
+drop policy if exists "admin galeria" on public.galeria;
 create policy "lectura publica galeria" on public.galeria for select to anon, authenticated using (true);
 create policy "admin galeria" on public.galeria for all to authenticated using (public.es_admin()) with check (public.es_admin());
 
+drop policy if exists "lectura publica reglas" on public.reglas;
+drop policy if exists "admin reglas" on public.reglas;
 create policy "lectura publica reglas" on public.reglas for select to anon, authenticated using (true);
 create policy "admin reglas" on public.reglas for all to authenticated using (public.es_admin()) with check (public.es_admin());
 
+drop policy if exists "lectura publica config" on public.config;
+drop policy if exists "admin config" on public.config;
 create policy "lectura publica config" on public.config for select to anon, authenticated using (true);
 create policy "admin config" on public.config for all to authenticated using (public.es_admin()) with check (public.es_admin());
 
 -- ============================================================
 -- VISTAS PÚBLICAS (cálculo automático de estadísticas)
 -- ============================================================
+-- Tabla de posiciones: solo cuenta partidos JUGADOS de la fase
+-- "grupos" (la eliminatoria no suma puntos en la tabla general).
+-- Incluye escudo_url para que la vista pública muestre los escudos.
 create or replace view public.tabla_posiciones
 as
 with resumen as (
   select
     e.id as equipo_id,
     e.nombre,
+    e.escudo_url,
     e.grupo,
     count(m.id) filter (where m.jugado) as pj,
     count(m.id) filter (where m.jugado and m.goles_local > m.goles_visitante) as pg,
@@ -215,17 +239,19 @@ with resumen as (
     coalesce(sum(m.goles_visitante) filter (where m.jugado), 0) as gc
   from public.equipos e
   left join public.partidos m
-    on m.jugado and (m.equipo_local_id = e.id or m.equipo_visitante_id = e.id)
+    on m.jugado and m.fase = 'grupos' and (m.equipo_local_id = e.id or m.equipo_visitante_id = e.id)
   group by e.id
 )
 select
-  equipo_id, nombre, grupo,
+  equipo_id, nombre, escudo_url, grupo,
   pj, pg, pe, pp,
   (pg * 3 + pe) as puntos,
   gf, gc,
   (gf - gc) as dg
 from resumen;
 
+-- Ranking de jugadores: solo suma estadísticas de partidos JUGADOS
+-- (evita que resultados guardados en partidos sin jugar inflen el ranking).
 create or replace view public.ranking_jugadores
 as
 select
@@ -238,7 +264,9 @@ select
   coalesce(sum(s.asistencias), 0) as asistencias
 from public.jugadores j
 join public.equipos e on e.id = j.equipo_id
-left join public.estadisticas s on s.jugador_id = j.id
+left join public.estadisticas s
+  on s.jugador_id = j.id
+  and exists (select 1 from public.partidos m where m.id = s.partido_id and m.jugado)
 group by j.id, j.nombre, j.numero, e.nombre, e.id;
 
 grant select on public.tabla_posiciones, public.ranking_jugadores to anon, authenticated;
@@ -249,6 +277,11 @@ grant select on public.tabla_posiciones, public.ranking_jugadores to anon, authe
 insert into storage.buckets (id, name, public)
 values ('media', 'media', true)
 on conflict (id) do nothing;
+
+drop policy if exists "media lectura publica" on storage.objects;
+drop policy if exists "media admin insertar" on storage.objects;
+drop policy if exists "media admin actualizar" on storage.objects;
+drop policy if exists "media admin eliminar" on storage.objects;
 
 create policy "media lectura publica" on storage.objects
   for select to anon, authenticated

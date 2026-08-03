@@ -26,9 +26,24 @@ export function iniciales(nombre) {
     .join('');
 }
 
+export function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+// Convierte a URL pública del bucket "media" cualquier formato guardado:
+//   - ruta relativa ("escudos/1785.jpg")  -> getPublicUrl()
+//   - URL completa ya generada            -> se usa tal cual (no duplica carpeta)
+export function urlPublico(path) {
+  if (!path) return '';
+  if (/^https?:\/\//i.test(path)) return path;
+  return supabase.storage.from('media').getPublicUrl(path).data.publicUrl;
+}
+
 export function escudo(equipo, cls = 'w-8 h-8') {
   if (equipo?.escudo_url) {
-    return `<img src="${equipo.escudo_url}" alt="${equipo.nombre}" loading="lazy" class="${cls} rounded-full object-cover shrink-0 bg-slate-700">`;
+    return `<img src="${esc(urlPublico(equipo.escudo_url))}" alt="${esc(equipo.nombre)}" loading="lazy" class="${cls} rounded-full object-cover shrink-0 bg-slate-700">`;
   }
   return `<span class="${cls} rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold grid place-items-center shrink-0 border border-emerald-500/30">${iniciales(equipo?.nombre)}</span>`;
 }
@@ -97,6 +112,9 @@ export function confirmar(mensaje, titulo = '¿Estás seguro?') {
 }
 
 export async function subirArchivo(file, carpeta, onProgreso) {
+  const MAX_BYTES = 50 * 1024 * 1024; // límite del plan gratuito de Supabase
+  if (!file) throw new Error('No se seleccionó ningún archivo');
+  if (file.size > MAX_BYTES) throw new Error('El archivo supera el límite de 50 MB');
   const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
   const path = `${carpeta}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error } = await supabase.storage
@@ -110,6 +128,26 @@ export async function subirArchivo(file, carpeta, onProgreso) {
   return supabase.storage.from('media').getPublicUrl(path).data.publicUrl;
 }
 
+// Sube un escudo y devuelve la RUTA RELATIVA ("escudos/xxxx.jpg") para
+// guardarla en equipos.escudo_url. El renderizado la convierte en URL
+// pública con urlPublico().
+export async function subirEscudo(file, onProgreso) {
+  const MAX_BYTES = 50 * 1024 * 1024;
+  if (!file) throw new Error('No se seleccionó ningún archivo');
+  if (file.size > MAX_BYTES) throw new Error('El archivo supera el límite de 50 MB');
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const path = `escudos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage
+    .from('media')
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      onUploadProgress: p => onProgreso?.(p.totalBytes)
+    });
+  if (error) throw error;
+  return path;
+}
+
 export function esVideo(file) {
   return (file.type || '').startsWith('video');
 }
@@ -121,9 +159,9 @@ export function cargando(el, activo, texto = 'Cargando...') {
 }
 
 export function opcionesSelect(lista, seleccionado, placeholder = 'Seleccionar...') {
-  let html = `<option value="">${placeholder}</option>`;
+  let html = `<option value="">${esc(placeholder)}</option>`;
   lista.forEach(x => {
-    html += `<option value="${x.id}" ${x.id === seleccionado ? 'selected' : ''}>${x.nombre}</option>`;
+    html += `<option value="${esc(x.id)}" ${x.id === seleccionado ? 'selected' : ''}>${esc(x.nombre)}</option>`;
   });
   return html;
 }
