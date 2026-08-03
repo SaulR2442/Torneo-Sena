@@ -2,6 +2,9 @@ import { supabase, escudo, esc, fmtFecha, ETIQUETAS_FASE } from './lib.js';
 import { renderBracket } from './bracket.js';
 import { CONFIG } from './config.js';
 
+// Respeta los saltos de línea sencillos del Markdown del reglamento
+marked.setOptions({ breaks: true });
+
 let config = {};
 let equipos = [];
 let sesion = null;
@@ -239,12 +242,11 @@ $('lightbox')?.addEventListener('click', () => {
 async function pintarReglas() {
   const { data } = await supabase.from('reglas').select('*').limit(1);
   const contenido = data?.[0]?.contenido;
-  $('reglas-contenido').innerHTML = contenido
+  const caja = $('reglas-contenido');
+  caja.classList.add('reglas-md');
+  caja.innerHTML = contenido
     ? marked.parse(contenido)
-    : '<p class="text-slate-600">El reglamento aún no ha sido publicado. Pronto estará disponible.</p>';
-  $('reglas-contenido').querySelectorAll('a').forEach(a => a.classList.add('text-emerald-400'));
-  $('reglas-contenido').querySelectorAll('h1,h2,h3').forEach(h => h.classList.add('text-white', 'font-bold'));
-  $('reglas-contenido').querySelectorAll('p,li').forEach(el => el.classList.add('text-slate-300', 'text-sm', 'mb-2'));
+    : '<p>El reglamento aún no ha sido publicado. Pronto estará disponible.</p>';
 }
 
 init();

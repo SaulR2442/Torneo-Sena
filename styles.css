@@ -1,0 +1,128 @@
+/* ============================================================
+   TORNEO SENA - Estilos del Reglamento (contenido Markdown)
+   Se aplica a .reglas-md (vista pública #reglas-contenido y
+   vista previa del admin #reglas-preview)
+   ============================================================ */
+
+/* 1) Tipografía y legibilidad */
+.reglas-md {
+  font-family: 'Inter', 'Roboto', 'Segoe UI', sans-serif;
+  line-height: 1.7;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  word-wrap: break-word;
+}
+
+/* 2) Encabezados con separación amplia */
+.reglas-md h1,
+.reglas-md h2,
+.reglas-md h3,
+.reglas-md h4,
+.reglas-md h5,
+.reglas-md h6 {
+  color: #ffffff;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 1.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.reglas-md h1 { font-size: 1.6rem; }
+.reglas-md h2 { font-size: 1.35rem; }
+.reglas-md h3 { font-size: 1.15rem; }
+
+.reglas-md h1:first-child,
+.reglas-md h2:first-child,
+.reglas-md h3:first-child {
+  margin-top: 0;
+}
+
+/* Párrafos */
+.reglas-md p {
+  margin-bottom: 1rem;
+}
+
+/* Listas */
+.reglas-md ul,
+.reglas-md ol {
+  padding-left: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.reglas-md li {
+  margin-bottom: 0.6rem;
+}
+
+/* Línea horizontal */
+.reglas-md hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Enlaces */
+.reglas-md a {
+  color: #34d399;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color .15s;
+}
+
+.reglas-md a:hover {
+  color: #10b981;
+}
+
+/* 3) Caja destacada para el Aviso Importante (blockquote) */
+.reglas-md blockquote {
+  background: rgba(234, 179, 8, 0.1);
+  border-left: 4px solid #eab308;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.reglas-md blockquote p {
+  margin-bottom: 0.4rem;
+}
+
+.reglas-md blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* Énfasis y detalles comunes del reglamento */
+.reglas-md strong {
+  color: #ffffff;
+}
+
+.reglas-md code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.reglas-md pre {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.reglas-md table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+.reglas-md th,
+.reglas-md td {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.5rem 0.75rem;
+}
+
+.reglas-md img {
+  max-width: 100%;
+  border-radius: 8px;
+}

@@ -2,6 +2,9 @@ import { supabase, toast, confirmar, subirArchivo, subirEscudo, esVideo, cargand
 import { renderBracket } from './bracket.js';
 import { CONFIG } from './config.js';
 
+// Respeta los saltos de línea sencillos del Markdown del reglamento
+marked.setOptions({ breaks: true });
+
 const $ = id => document.getElementById(id);
 const state = { equipos: [], jugadores: [], partidos: [], config: {} };
 
