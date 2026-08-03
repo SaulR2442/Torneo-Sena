@@ -43,13 +43,21 @@ h3 { font-size: 1.15rem; }
 
 p { margin: .6rem 0; }
 
-header, nav {
+/* Barra superior pegajosa: SOLO los elementos que llevan la clase
+   .sticky (nav de index.html / header del admin). Cualquier otro
+   header (p. ej. el Hero) queda en flujo normal. */
+nav.sticky,
+header.sticky {
   position: sticky;
   top: 0;
-  z-index: 40;
+  z-index: 50;
   background: rgba(2, 6, 23, .9);
   border-bottom: 1px solid var(--borde);
-  padding: .75rem 1rem;
+}
+
+/* El Hero vive en su bloque normal: nada de fixed/sticky. */
+#inicio {
+  position: relative;
 }
 
 main, section {
