@@ -84,7 +84,7 @@ async function pintarPosiciones() {
       <td class="px-3 py-3 text-slate-500">${i + 1}</td>
       <td class="px-3 py-3">
         <div class="flex items-center gap-2.5">
-          ${escudo({ escudo_url: f.escudo_url, nombre: f.nombre })}
+          ${escudo(f, 'w-8 h-8')}
           <span class="font-semibold">${esc(f.nombre)}</span>
           ${i < clasifican ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">Clasifica</span>' : ''}
         </div>
