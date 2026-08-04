@@ -11,6 +11,15 @@ let sesion = null;
 
 const $ = id => document.getElementById(id);
 
+function fmtFechaHora(iso) {
+  if (!iso) return 'Por definir';
+  const d = new Date(iso);
+  const p = n => String(n).padStart(2, '0');
+  const fecha = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+  const hhmm = `${p(d.getHours())}:${p(d.getMinutes())}`;
+  return hhmm === '12:00' ? fecha : `${fecha} · ${hhmm}`;
+}
+
 async function init() {
   document.getElementById('footer-anio').textContent = new Date().getFullYear();
   const [cfg, equiposResp, sesionResp] = await Promise.all([
@@ -177,8 +186,8 @@ async function pintarPartidos() {
     return `
       <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
         <div class="flex items-center justify-between text-[10px] uppercase tracking-wider text-slate-500 mb-1">
-          <span>${ETIQUETAS_FASE[p.fase] ?? p.fase}${p.jornada ? ` · ${esc(p.jornada)}` : ''}${p.grupo ? ` · Grupo ${p.grupo}` : ''}</span>
-          <span>${fmtFecha(p.fecha)}</span>
+          <span>${ETIQUETAS_FASE[p.fase] ?? p.fase}${p.jornada ? ` · ${esc(p.jornada)}` : ''}${p.grupo ? ` · Grupo ${p.grupo}` : ''}${p.estado === 'EN JUEGO' ? ' <span class="text-rose-400 font-black animate-pulse ml-1">● En vivo</span>' : ''}</span>
+          <span class="whitespace-nowrap">${fmtFechaHora(p.fecha)}</span>
         </div>
         <div class="grid grid-cols-2 gap-x-4">
           <div>${fila(local, p.goles_local, ganador === 'L')}</div>

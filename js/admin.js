@@ -262,6 +262,45 @@ let arbitrajeEstado = {};
 
 const equipoNombre = id => state.equipos.find(e => e.id === id)?.nombre ?? '';
 
+const ESTADOS_PARTIDO = ['PENDIENTE', 'EN JUEGO', 'FINALIZADO'];
+
+// Convierte la fecha ISO a "yyyy-mm-dd" en la zona local del navegador.
+// (No se usa slice(0,10) porque las horas cercanas a medianoche
+// desplazarían el día en la representación UTC.)
+function fechaLocalDeISO(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// Devuelve "HH:MM" de la fecha guardada; vacío si no tiene hora.
+// Las fechas antiguas se guardaban a las 12:00 como "hora por definir".
+function horaDeFecha(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const p = n => String(n).padStart(2, '0');
+  const hhmm = `${p(d.getHours())}:${p(d.getMinutes())}`;
+  return hhmm === '12:00' ? '' : hhmm;
+}
+
+function fechaHoraLocal(iso) {
+  if (!iso) return 'Por definir';
+  const d = new Date(iso);
+  const fecha = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+  const hora = horaDeFecha(iso);
+  return hora ? `${fecha} · ${hora}` : fecha;
+}
+
+function estadoBadge(estado) {
+  const cls = estado === 'FINALIZADO'
+    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
+    : estado === 'EN JUEGO'
+      ? 'bg-sky-500/15 text-sky-400 border-sky-500/40'
+      : 'bg-slate-700/40 text-slate-400 border-slate-600/40';
+  return `<span class="text-[9px] font-bold uppercase tracking-wider border rounded-full px-2 py-0.5 ${cls}">${esc(estado || 'PENDIENTE')}</span>`;
+}
+
 function fechaHoy() {
   const d = new Date();
   const p = n => String(n).padStart(2, '0');
@@ -345,8 +384,12 @@ function equiposCambiados() {
 function resetFormPartido() {
   $('form-partido').reset();
   $('par-id').value = '';
+  $('par-jornada').value = '';
   $('par-fecha').value = fechaHoy();
+  $('par-hora').value = '';
+  $('par-estado').value = 'PENDIENTE';
   $('par-sede').value = 'SENA';
+  $('par-jugado').checked = false;
   goleadoresSel = [];
   arbitrajeEstado = {};
   actualizarMarcador();
@@ -427,14 +470,15 @@ async function renderPartidos() {
   lista.innerHTML = visibles.map(p => `
     <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 flex flex-wrap items-center gap-3">
       <div class="min-w-0">
-        <p class="text-[10px] uppercase tracking-wider text-slate-500">${ETIQUETAS_FASE[p.fase] ?? p.fase}${p.jornada ? ` · ${esc(p.jornada)}` : ''} · ${fmtFecha(p.fecha)}</p>
+        <p class="text-[10px] uppercase tracking-wider text-slate-500">${ETIQUETAS_FASE[p.fase] ?? p.fase}${p.jornada ? ` · ${esc(p.jornada)}` : ''} · ${fechaHoraLocal(p.fecha)}</p>
         <p class="text-sm font-semibold mt-0.5">
           ${esc(porId[p.equipo_local_id]?.nombre ?? 'Pendiente')} <span class="text-slate-500">vs</span> ${esc(porId[p.equipo_visitante_id]?.nombre ?? 'Pendiente')}
         </p>
       </div>
       <div class="ml-auto flex items-center gap-2">
         <span class="font-black ${p.jugado ? 'text-emerald-400' : 'text-slate-500'}">${p.jugado ? `${p.goles_local} - ${p.goles_visitante}` : 'Pendiente'}</span>
-        <button data-editar="${p.id}" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700">Editar</button>
+        ${estadoBadge(p.jugado ? 'FINALIZADO' : (p.estado || 'PENDIENTE'))}
+        <button data-editar="${p.id}" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700">✏️ Editar</button>
         <button data-eliminar="${p.id}" class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-600/10 text-rose-400 hover:bg-rose-600/20">Eliminar</button>
       </div>
     </div>`).join('');
@@ -453,13 +497,19 @@ async function editarPartido(id) {
   const p = state.partidos.find(x => x.id === id);
   $('par-id').value = p.id;
   $('par-fase').value = p.fase;
-  $('par-fecha').value = p.fecha ? p.fecha.slice(0, 10) : fechaHoy();
+  $('par-jornada').value = p.jornada || '';
+  $('par-fecha').value = fechaLocalDeISO(p.fecha);
+  $('par-hora').value = horaDeFecha(p.fecha);
   $('par-sede').value = p.sede || 'SENA';
+  const estado = p.jugado
+    ? 'FINALIZADO'
+    : (p.estado && ESTADOS_PARTIDO.includes(p.estado) ? p.estado : 'PENDIENTE');
+  $('par-estado').value = estado;
+  $('par-jugado').checked = estado === 'FINALIZADO';
   $('par-local').value = p.equipo_local_id || '';
   $('par-visitante').value = p.equipo_visitante_id || '';
   $('par-goles-local').value = p.goles_local ?? 0;
   $('par-goles-visitante').value = p.goles_visitante ?? 0;
-  $('par-jugado').checked = p.jugado;
   await cargarGoleadores(p.id);
   await cargarArbitraje(p.id);
   actualizarMarcador();
@@ -471,21 +521,26 @@ async function editarPartido(id) {
 $('form-partido').addEventListener('submit', async e => {
   e.preventDefault();
   const id = $('par-id').value || null;
-  const jugado = $('par-jugado').checked;
+  const estado = $('par-estado').value;
+  const jugado = estado === 'FINALIZADO';
   const localId = $('par-local').value || null;
   const visitanteId = $('par-visitante').value || null;
   if (localId && localId === visitanteId) {
     toast('Un equipo no puede jugar contra sí mismo', 'error');
     return;
   }
+  const fechaVal = $('par-fecha').value;
+  const horaVal = $('par-hora').value;
   const datos = {
     fase: $('par-fase').value,
-    fecha: $('par-fecha').value ? new Date(`${$('par-fecha').value}T12:00:00`).toISOString() : null,
+    jornada: $('par-jornada').value.trim() || null,
+    fecha: fechaVal ? new Date(`${fechaVal}T${horaVal || '12:00:00'}`).toISOString() : null,
     sede: $('par-sede').value.trim() || 'SENA',
     equipo_local_id: localId,
     equipo_visitante_id: visitanteId,
     goles_local: Number($('par-goles-local').value || 0),
     goles_visitante: Number($('par-goles-visitante').value || 0),
+    estado,
     jugado
   };
   if (jugado) {
@@ -527,6 +582,15 @@ $('btn-agregar-gol').addEventListener('click', () => {
 
 $('par-local').addEventListener('change', equiposCambiados);
 $('par-visitante').addEventListener('change', equiposCambiados);
+
+// Estado del partido y casilla "jugado" se mantienen sincronizados:
+// FINALIZADO => partido jugado; cualquier otro estado => no jugado.
+$('par-estado').addEventListener('change', () => {
+  $('par-jugado').checked = $('par-estado').value === 'FINALIZADO';
+});
+$('par-jugado').addEventListener('change', () => {
+  $('par-estado').value = $('par-jugado').checked ? 'FINALIZADO' : 'PENDIENTE';
+});
 
 // ============================================================
 // TODOS CONTRA TODOS (FIXTURE AUTOMÁTICO - ROUND ROBIN)
@@ -595,6 +659,22 @@ function pintarFixture() {
   const caja = $('fixture-preview');
   const fila = (equipo) => `
     <span class="flex items-center gap-2 min-w-0">${escudo(equipo, 'w-6 h-6')}<span class="font-semibold text-sm truncate">${esc(equipo.nombre)}</span></span>`;
+  const partidoCard = (p, i, k) => `
+    <div class="rounded-lg bg-slate-950/60 border border-slate-700/60 px-3 py-2">
+      <div class="flex items-center gap-2">
+        <div class="flex items-center justify-between gap-2 flex-1 min-w-0">
+          ${fila(p.local)}
+          <span class="text-xs font-black text-slate-500 shrink-0 whitespace-nowrap">vs</span>
+          ${fila(p.visitante)}
+        </div>
+        <button type="button" data-editar-fixture="${i}-${k}" title="Editar partido" class="text-sm text-slate-400 hover:text-gold px-1.5 py-1 rounded-md border border-transparent hover:border-yellow-500/50 transition shrink-0">✏️</button>
+      </div>
+      <p class="mt-1.5 pl-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
+        <span>📅 ${fechaHoraLocal(p.fecha)}</span>
+        <span>📍 ${esc(p.sede || 'SENA')}</span>
+        ${estadoBadge(p.estado || 'PENDIENTE')}
+      </p>
+    </div>`;
   caja.innerHTML = `
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       ${fixtureActual.jornadas.map((j, i) => {
@@ -602,12 +682,15 @@ function pintarFixture() {
         const descansa = j.partidos.length - reales;
         return `
         <div class="rounded-xl border bg-slate-900/60 overflow-hidden">
-          <div class="px-4 py-3 border-b border-yellow-500/30 flex items-center justify-between gap-2">
+          <div class="px-4 py-3 border-b border-yellow-500/30 flex flex-wrap items-center justify-between gap-2">
             <p class="text-gold font-black uppercase tracking-wider text-sm">📅 Fecha ${i + 1}</p>
-            <span class="text-xs text-slate-500 whitespace-nowrap">${reales} partido${reales !== 1 ? 's' : ''}${descansa ? ' · 1 descansa' : ''}</span>
+            <div class="flex items-center gap-2">
+              <button type="button" data-fecha-masiva="${i}" class="text-[10px] px-2.5 py-1 rounded-lg border border-yellow-500/40 text-gold hover:bg-yellow-500/10 font-bold whitespace-nowrap transition">🕒 Cambiar fecha/hora</button>
+              <span class="text-xs text-slate-500 whitespace-nowrap">${reales} partido${reales !== 1 ? 's' : ''}${descansa ? ' · 1 descansa' : ''}</span>
+            </div>
           </div>
           <div class="p-3 space-y-2">
-            ${j.partidos.map(p => {
+            ${j.partidos.map((p, k) => {
               if (!p.local?.id || !p.visitante?.id) {
                 const activo = p.local?.id ? p.local : p.visitante;
                 return `
@@ -616,17 +699,19 @@ function pintarFixture() {
                   <span class="descansa-chip">Descansa</span>
                 </div>`;
               }
-              return `
-                <div class="flex items-center justify-between gap-2 rounded-lg bg-slate-950/60 border border-slate-700/60 px-3 py-2">
-                  ${fila(p.local)}
-                  <span class="text-xs font-black text-slate-500 shrink-0 whitespace-nowrap">vs</span>
-                  ${fila(p.visitante)}
-                </div>`;
+              return partidoCard(p, i, k);
             }).join('')}
           </div>
         </div>`;
       }).join('')}
     </div>`;
+  caja.querySelectorAll('[data-editar-fixture]').forEach(b => b.addEventListener('click', () => {
+    const [i, k] = b.dataset.editarFixture.split('-').map(Number);
+    abrirModalPartidoFixture(i, k);
+  }));
+  caja.querySelectorAll('[data-fecha-masiva]').forEach(b => b.addEventListener('click', () => {
+    abrirModalFechaMasiva(Number(b.dataset.fechaMasiva));
+  }));
   const publicados = fixtureActual.guardado || 0;
   $('btn-guardar-fixture').textContent = publicados
     ? `Guardar y Publicar Fixture · ${publicados} publicado${publicados !== 1 ? 's' : ''}`
@@ -642,7 +727,8 @@ $('btn-guardar-fixture').addEventListener('click', async () => {
       .map(p => ({
         fase: 'grupos',
         jornada: `Fecha ${i + 1}`,
-        estado: 'PENDIENTE',
+        fecha: p.fecha || null,
+        estado: p.estado || 'PENDIENTE',
         equipo_local_id: p.local.id,
         equipo_visitante_id: p.visitante.id,
         goles_local: 0,
@@ -667,6 +753,156 @@ $('btn-guardar-fixture').addEventListener('click', async () => {
   toast(`Fixture publicado: ${filas.length} partidos en ${fixtureActual.jornadas.length} fechas`);
   pintarFixture();
 });
+
+// ============================================================
+// EDICIÓN DE PARTIDOS / FECHAS DEL FIXTURE (modales)
+// Antes de publicar actúan sobre el estado local (fixtureActual);
+// si el fixture ya se publicó, además sincronizan Supabase para
+// reflejar los cambios de inmediato en la vista pública.
+// ============================================================
+
+function abrirModalFixture(titulo, cuerpoHtml, onsubmit) {
+  $('modal-fixture-titulo').textContent = titulo;
+  const form = $('modal-fixture-form');
+  form.innerHTML = cuerpoHtml;
+  form.onsubmit = e => { e.preventDefault(); onsubmit(); };
+  $('modal-fixture').classList.remove('hidden');
+  $('modal-fixture').classList.add('flex');
+  $('mx-cancelar')?.addEventListener('click', cerrarModalFixture);
+}
+
+function cerrarModalFixture() {
+  const m = $('modal-fixture');
+  m.classList.add('hidden');
+  m.classList.remove('flex');
+}
+
+$('modal-fixture-cerrar').addEventListener('click', cerrarModalFixture);
+$('modal-fixture').addEventListener('click', e => {
+  if (e.target === $('modal-fixture')) cerrarModalFixture();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') cerrarModalFixture();
+});
+
+function opcionesEquipos(seleccionado) {
+  return '<option value="">Seleccionar…</option>' + state.equipos.map(e =>
+    `<option value="${e.id}" ${e.id === seleccionado ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('');
+}
+
+const campoFixture = (label, id, inner, extraCls = '') => `
+  <div class="${extraCls}">
+    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">${label}</label>
+    ${inner}
+  </div>`;
+
+function abrirModalPartidoFixture(i, k) {
+  const partido = fixtureActual.jornadas[i].partidos[k];
+  if (!partido.local?.id || !partido.visitante?.id) return;
+  abrirModalFixture(`✏️ Partido · Fecha ${i + 1}`, `
+    ${campoFixture('Equipo Local', 'mx-local', `<select id="mx-local" class="campo w-full">${opcionesEquipos(partido.local.id)}</select>`)}
+    ${campoFixture('Equipo Visitante', 'mx-visitante', `<select id="mx-visitante" class="campo w-full">${opcionesEquipos(partido.visitante.id)}</select>`)}
+    ${campoFixture('Jornada / Fecha', 'mx-jornada', `<input id="mx-jornada" class="campo w-full" value="${esc(`Fecha ${i + 1}`)}" placeholder="ej. Fecha 1, Cuartos…">`)}
+    <div class="grid grid-cols-2 gap-3">
+      ${campoFixture('Fecha del encuentro', 'mx-fecha', `<input id="mx-fecha" type="date" class="campo w-full" value="${fechaLocalDeISO(partido.fecha)}">`)}
+      ${campoFixture('Hora del encuentro', 'mx-hora', `<input id="mx-hora" type="time" class="campo w-full" value="${horaDeFecha(partido.fecha)}">`)}
+    </div>
+    ${campoFixture('Estado del partido', 'mx-estado', `
+      <select id="mx-estado" class="campo w-full">
+        ${ESTADOS_PARTIDO.map(e => `<option value="${e}" ${(partido.estado || 'PENDIENTE') === e ? 'selected' : ''}>${e}</option>`).join('')}
+      </select>`)}
+    <div class="flex items-center justify-end gap-2 pt-2">
+      <button type="button" id="mx-cancelar" class="px-4 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm">Cancelar</button>
+      <button type="submit" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Guardar cambios</button>
+    </div>`, async () => {
+    const localId = $('mx-local').value;
+    const visitId = $('mx-visitante').value;
+    if (!localId || !visitId) { toast('Selecciona ambos equipos', 'error'); return; }
+    if (localId === visitId) { toast('Un equipo no puede jugar contra sí mismo', 'error'); return; }
+    const estado = $('mx-estado').value;
+    const fechaVal = $('mx-fecha').value;
+    const horaVal = $('mx-hora').value;
+    fixtureActual.jornadas[i].partidos[k] = {
+      ...partido,
+      local: state.equipos.find(e => e.id === localId),
+      visitante: state.equipos.find(e => e.id === visitId),
+      jornada: $('mx-jornada').value.trim() || `Fecha ${i + 1}`,
+      fecha: fechaVal ? new Date(`${fechaVal}T${horaVal || '12:00:00'}`).toISOString() : null,
+      estado
+    };
+    cerrarModalFixture();
+    pintarFixture();
+    await sincronizarFixturePublicado();
+    toast('Partido actualizado');
+  });
+}
+
+function abrirModalFechaMasiva(i) {
+  const partidos = fixtureActual.jornadas[i].partidos.filter(p => p.local?.id && p.visitante?.id);
+  if (!partidos.length) { toast('No hay partidos programados en esta fecha', 'error'); return; }
+  abrirModalFixture(`🕒 Cambiar fecha/hora · Fecha ${i + 1}`, `
+    <p class="text-xs text-slate-400">Se aplicará el mismo día y hora a los ${partidos.length} partido${partidos.length !== 1 ? 's' : ''} de esta jornada${fixtureActual.guardado ? '. Se actualizará también lo ya publicado.' : '.'}</p>
+    <div class="grid grid-cols-2 gap-3 mt-3">
+      ${campoFixture('Fecha del encuentro', 'mx-fecha', `<input id="mx-fecha" type="date" class="campo w-full" value="${fechaLocalDeISO(partidos[0].fecha) || fechaHoy()}">`)}
+      ${campoFixture('Hora del encuentro', 'mx-hora', `<input id="mx-hora" type="time" class="campo w-full" value="${horaDeFecha(partidos[0].fecha)}">`)}
+    </div>
+    <div class="flex items-center justify-end gap-2 pt-2">
+      <button type="button" id="mx-cancelar" class="px-4 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm">Cancelar</button>
+      <button type="submit" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Aplicar a ${partidos.length} partido${partidos.length !== 1 ? 's' : ''}</button>
+    </div>`, async () => {
+    const fechaVal = $('mx-fecha').value;
+    const horaVal = $('mx-hora').value;
+    const iso = fechaVal ? new Date(`${fechaVal}T${horaVal || '12:00:00'}`).toISOString() : null;
+    fixtureActual.jornadas[i].partidos.forEach(p => {
+      if (p.local?.id && p.visitante?.id) p.fecha = iso;
+    });
+    cerrarModalFixture();
+    pintarFixture();
+    await sincronizarFixturePublicado();
+    toast('Fecha/hora aplicada a toda la jornada');
+  });
+}
+
+// Si el fixture ya fue publicado, replica en Supabase los cambios
+// hechos en la vista previa (fecha/hora/estado y posible cambio de
+// equipos) buscando el partido por pares de equipos o por índice.
+async function sincronizarFixturePublicado() {
+  if (!fixtureActual?.guardado) return;
+  const { data } = await supabase.from('partidos').select('*').eq('fase', 'grupos').not('jornada', 'is', null);
+  const porJornada = {};
+  (data || []).forEach(p => { (porJornada[p.jornada] ||= []).push(p); });
+  const updates = [];
+  fixtureActual.jornadas.forEach((j, i) => {
+    const jornada = `Fecha ${i + 1}`;
+    const reales = j.partidos.filter(p => p.local?.id && p.visitante?.id);
+    const dbs = porJornada[jornada] || [];
+    const usados = new Set();
+    reales.forEach(p => {
+      const idx = dbs.findIndex((d, k) => !usados.has(k) && d.equipo_local_id === p.local.id && d.equipo_visitante_id === p.visitante.id);
+      if (idx >= 0) { usados.add(idx); p.__dbId = dbs[idx].id; }
+    });
+    reales.forEach(p => {
+      if (p.__dbId) return;
+      for (let k = 0; k < dbs.length; k++) {
+        if (!usados.has(k)) { usados.add(k); p.__dbId = dbs[k].id; break; }
+      }
+    });
+    reales.forEach(p => {
+      if (!p.__dbId) return;
+      updates.push(supabase.from('partidos').update({
+        equipo_local_id: p.local.id,
+        equipo_visitante_id: p.visitante.id,
+        fecha: p.fecha || null,
+        estado: p.estado || 'PENDIENTE',
+        jornada
+      }).eq('id', p.__dbId));
+    });
+  });
+  if (updates.length) {
+    const resultados = await Promise.all(updates);
+    if (resultados.some(r => r.error)) toast('No se pudieron sincronizar todos los cambios', 'error');
+  }
+}
 
 // ============================================================
 // ELIMINATORIA
