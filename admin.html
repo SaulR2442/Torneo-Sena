@@ -19,17 +19,17 @@
 
   <!-- ============ BARRA SUPERIOR ============ -->
   <header class="sticky top-0 z-40 bg-slate-950 border-b border-slate-800">
-    <div class="px-4 h-16 flex items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
+    <div class="px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex items-center gap-3 min-w-0">
         <img src="WhatsApp Image 2026-08-03 at 1.15.21 PM.jpeg" alt="Mundial de Fútbol SENA Logo" class="logo-nav h-10 w-auto rounded-full object-cover">
-        <div>
-          <p class="font-black leading-tight">Panel de Administración</p>
-          <p class="text-[11px] text-slate-500 leading-tight" id="usuario-correo"></p>
+        <div class="min-w-0">
+          <p class="font-black leading-tight truncate">Panel de Administración</p>
+          <p class="text-xs text-gray-400 leading-tight truncate" id="usuario-correo"></p>
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <a href="index.html" class="text-sm px-4 py-2 rounded-lg border border-slate-700 hover:bg-slate-800 font-semibold">Ver sitio</a>
-        <button id="btn-cerrar-sesion" class="text-sm px-4 py-2 rounded-lg bg-rose-600/10 border border-rose-600/40 text-rose-400 hover:bg-rose-600/20 font-semibold">Salir</button>
+        <a href="index.html" class="flex-1 sm:flex-none text-center text-sm px-4 py-2 rounded-lg border border-slate-700 hover:bg-slate-800 font-semibold">Ver sitio</a>
+        <button id="btn-cerrar-sesion" class="flex-1 sm:flex-none text-center text-sm px-4 py-2 rounded-lg bg-rose-600/10 border border-rose-600/40 text-rose-400 hover:bg-rose-600/20 font-semibold">Salir</button>
       </div>
     </div>
   </header>
@@ -38,16 +38,16 @@
 
     <!-- ============ MENÚ LATERAL ============ -->
     <aside class="lg:w-56 shrink-0">
-      <nav class="flex lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0 text-sm font-semibold">
-        <button data-tab="resumen" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap bg-emerald-600 text-white">📊 Resumen</button>
-        <button data-tab="equipos" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">🛡️ Equipos</button>
-        <button data-tab="jugadores" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">👤 Jugadores</button>
-        <button data-tab="partidos" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📋 Partidos</button>
-        <button data-tab="eliminatoria" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">🏆 Eliminatoria</button>
-        <button data-tab="estadisticas" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📈 Estadísticas</button>
-        <button data-tab="reglas" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📜 Reglamento</button>
-        <button data-tab="galeria" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📸 Galería</button>
-        <button data-tab="config" class="tab-btn px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">⚙️ Configuración</button>
+      <nav class="flex overflow-x-auto no-scrollbar space-x-2 p-2 border-b border-yellow-500/30 whitespace-nowrap -mx-4 px-4 sm:mx-0 lg:flex-col lg:space-x-0 lg:space-y-1 lg:mx-0 lg:px-0 lg:border-b-0 text-sm font-semibold">
+        <button data-tab="resumen" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap bg-emerald-600 text-white">📊 Resumen</button>
+        <button data-tab="equipos" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">🛡️ Equipos</button>
+        <button data-tab="jugadores" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">👤 Jugadores</button>
+        <button data-tab="partidos" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📋 Partidos</button>
+        <button data-tab="eliminatoria" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">🏆 Eliminatoria</button>
+        <button data-tab="estadisticas" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📈 Estadísticas</button>
+        <button data-tab="reglas" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📜 Reglamento</button>
+        <button data-tab="galeria" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📸 Galería</button>
+        <button data-tab="config" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">⚙️ Configuración</button>
       </nav>
     </aside>
 
@@ -88,7 +88,7 @@
             <button type="button" id="btn-cancelar-equipo" class="hidden px-4 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm">Cancelar</button>
           </div>
         </form>
-        <div id="grid-equipos" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        <div id="grid-equipos" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 overflow-x-auto"></div>
       </section>
 
       <!-- ===== JUGADORES ===== -->
@@ -202,7 +202,7 @@
             <option value="">Todos</option>
           </select>
         </div>
-        <div id="lista-partidos" class="space-y-3"></div>
+        <div id="lista-partidos" class="space-y-3 overflow-x-auto"></div>
       </section>
 
       <!-- ===== ELIMINATORIA ===== -->

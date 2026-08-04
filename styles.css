@@ -965,3 +965,59 @@ body {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+/* ============================================================
+   ADMIN: HEADER Y PESTAÑAS RESPONSIVE (móvil iOS/Android)
+   Respaldo de utilidades usadas en admin.html que no están
+   compiladas en tailwind.css (mismo patrón que .table-responsive).
+   ============================================================ */
+
+/* Pestañas deslizables: oculta la barra de scroll nativa */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Separación horizontal entre pestañas (space-x-2) */
+.space-x-2 > :not([hidden]) ~ :not([hidden]) {
+  margin-left: .5rem;
+}
+
+/* Sangrado de pestañas: el scroll llega al borde de la pantalla
+   en móvil y vuelve a la cuadrícula normal en ≥640px */
+.-mx-4 {
+  margin-left: -1rem;
+  margin-right: -1rem;
+}
+
+/* Borde dorado sutil bajo las pestañas (border-yellow-500/30) */
+.border-yellow-500\/30 {
+  border-color: rgba(234, 179, 8, .3);
+}
+
+/* Utilidades sm: que faltan en el build de Tailwind */
+@media (min-width: 640px) {
+  .sm\:flex-row { flex-direction: row; }
+  .sm\:flex-none { flex: none; }
+  .sm\:items-center { align-items: center; }
+  .sm\:justify-between { justify-content: space-between; }
+  .sm\:mx-0 { margin-left: 0; margin-right: 0; }
+}
+
+/* En ≥1024px el menú vuelve a columna lateral (igual que antes) */
+@media (min-width: 1024px) {
+  .lg\:mx-0 { margin-left: 0; margin-right: 0; }
+  .lg\:px-0 { padding-left: 0; padding-right: 0; }
+  .lg\:border-b-0 { border-bottom-width: 0; }
+  .lg\:space-x-0 > :not([hidden]) ~ :not([hidden]) { margin-left: 0; }
+  .lg\:space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: .25rem; }
+}
+
+/* Tabla de jugadores del admin: nunca se comprime; los botones
+   Editar/Eliminar se alcanzan deslizando en pantallas estrechas */
+.tabla-admin {
+  min-width: 560px;
+}

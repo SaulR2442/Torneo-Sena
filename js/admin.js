@@ -174,8 +174,8 @@ async function renderJugadores() {
     return;
   }
   lista.innerHTML = `
-    <div class="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
-      <table class="w-full text-sm">
+    <div class="rounded-xl border border-slate-800 bg-slate-900/60 overflow-x-auto">
+      <table class="w-full text-sm tabla-admin">
         <thead><tr class="text-left text-slate-400 uppercase text-xs border-b border-slate-800">
           <th class="px-3 py-3">Jugador</th><th class="px-3 py-3">Posición</th><th class="px-3 py-3 text-center">Nº</th><th class="px-3 py-3 text-right">Acciones</th>
         </tr></thead>
