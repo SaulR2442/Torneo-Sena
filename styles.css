@@ -1082,6 +1082,46 @@ body {
 }
 
 /* ============================================================
+   ETIQUETAS DE POSICIÓN EN LA TABLA PÚBLICA (badges)
+   1º-2º Semifinales directas · 3º-6º Cuartos de Final · 7º+ Eliminado
+   El build de tailwind.css no incluye estas utilidades de color:
+   se respaldan aquí (mismo patrón que .border-yellow-500/30).
+   ============================================================ */
+.pos-badge {
+  display: inline-block;
+  border-radius: .3rem;
+  padding: .1rem .45rem;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+
+/* Verde: clasificados directos a semifinales (1º y 2º) */
+.pos-badge.bg-emerald-500\/20 { background-color: rgba(16, 185, 129, .20); }
+.pos-badge.border-emerald-500\/40 { border-color: rgba(16, 185, 129, .40); }
+
+/* Azul: cuartos de final / repechaje (3º a 6º) */
+.pos-badge.bg-blue-500\/20 { background-color: rgba(59, 130, 246, .20); }
+.pos-badge.text-blue-400 { color: #60a5fa; }
+.pos-badge.border-blue-500\/40 { border-color: rgba(59, 130, 246, .40); }
+
+/* Rojo: eliminado (7º en adelante) */
+.pos-badge.bg-red-500\/20 { background-color: rgba(239, 68, 68, .20); }
+.pos-badge.text-red-400 { color: #f87171; }
+.pos-badge.border-red-500\/40 { border-color: rgba(239, 68, 68, .40); }
+
+/* Más compacto en móviles (igual que .chip-clasificado) */
+@media (max-width: 639px) {
+  .pos-badge {
+    font-size: 9px;
+    padding: .1rem .35rem;
+    letter-spacing: .04em;
+  }
+}
+
+/* ============================================================
    CORRECCIÓN FORZADA: MENÚ DE NAVEGACIÓN DEL ADMIN EN MÓVILES
    (final del archivo = máxima prioridad sobre Tailwind y reglas
    anteriores, incluido el heredado width:100%/grid de botones)

@@ -81,25 +81,30 @@ async function pintarPosiciones() {
     .filter(f => grupoActivo === 'TODOS' || f.grupo === grupoActivo)
     .sort((a, b) => b.puntos - a.puntos || b.dg - a.dg || b.gf - a.gf || a.nombre.localeCompare(b.nombre));
 
-  const numGrupos = Number(config.num_grupos || 1);
-  const clasifican = numGrupos > 1
-    ? Math.max(1, Math.floor(Number(config.num_clasificados || 0) / numGrupos))
-    : Number(config.num_clasificados || 0);
-
   $('tbody-posiciones').innerHTML = visibles.map((f, i) => {
     // Se pasa el objeto del equipo completo (con escudo_url), igual que
     // admin.js renderEquipos. Si no está en "equipos", usa la fila de la
     // vista como respaldo.
     const equipo = porId[f.equipo_id] || f;
+    // Etiqueta de clasificación según la posición (#) de la tabla:
+    //   1º-2º -> Semifinales directas
+    //   3º-6º -> Cuartos de Final (repechaje)
+    //   7º+   -> Eliminado
+    const pos = i + 1;
+    const badge = pos <= 2
+      ? '<span class="pos-badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">Semis directo</span>'
+      : pos <= 6
+        ? '<span class="pos-badge bg-blue-500/20 text-blue-400 border border-blue-500/40">Cuartos de final</span>'
+        : '<span class="pos-badge bg-red-500/20 text-red-400 border border-red-500/40">Eliminado</span>';
     return `
-    <tr class="fila-equipo border-b border-slate-800/60 hover:bg-slate-800/30 ${i < clasifican ? 'bg-emerald-500/5' : ''}" data-equipo-id="${esc(f.equipo_id)}">
-      <td class="px-3 py-3 text-slate-500">${i + 1}</td>
+    <tr class="fila-equipo border-b border-slate-800/60 hover:bg-slate-800/30 ${pos <= 6 ? 'bg-emerald-500/5' : ''}" data-equipo-id="${esc(f.equipo_id)}">
+      <td class="px-3 py-3 text-slate-500">${pos}</td>
       <td class="px-3 py-3">
         <div class="flex items-center gap-2.5">
           ${escudo(equipo, 'w-8 h-8')}
           <div class="flex items-center gap-2 flex-wrap min-w-0">
             <span class="font-semibold">${esc(equipo.nombre ?? f.nombre)}</span>
-            ${i < clasifican ? '<span class="chip-clasificado">Clasificado</span>' : ''}
+            ${badge}
             <span class="ver-plantilla" title="Ver plantilla">👁️<span class="ver-plantilla-texto"> Ver plantilla</span></span>
           </div>
         </div>
