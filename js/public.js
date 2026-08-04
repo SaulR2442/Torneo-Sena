@@ -97,17 +97,19 @@ async function pintarPosiciones() {
       <td class="px-3 py-3">
         <div class="flex items-center gap-2.5">
           ${escudo(equipo, 'w-8 h-8')}
-          <span class="font-semibold">${esc(equipo.nombre ?? f.nombre)}</span>
-          ${i < clasifican ? '<span class="chip-clasificado">Clasificado</span>' : ''}
-          <span class="ver-plantilla">👁️ Ver plantilla</span>
+          <div class="flex items-center gap-2 flex-wrap min-w-0">
+            <span class="font-semibold">${esc(equipo.nombre ?? f.nombre)}</span>
+            ${i < clasifican ? '<span class="chip-clasificado">Clasificado</span>' : ''}
+            <span class="ver-plantilla" title="Ver plantilla">👁️<span class="ver-plantilla-texto"> Ver plantilla</span></span>
+          </div>
         </div>
       </td>
       <td class="px-2 py-3 text-center">${f.pj}</td>
-      <td class="px-2 py-3 text-center hidden sm:table-cell">${f.pg}</td>
-      <td class="px-2 py-3 text-center hidden sm:table-cell">${f.pe}</td>
-      <td class="px-2 py-3 text-center hidden sm:table-cell">${f.pp}</td>
-      <td class="px-2 py-3 text-center hidden sm:table-cell">${f.gf}</td>
-      <td class="px-2 py-3 text-center hidden sm:table-cell">${f.gc}</td>
+      <td class="px-2 py-3 text-center">${f.pg}</td>
+      <td class="px-2 py-3 text-center">${f.pe}</td>
+      <td class="px-2 py-3 text-center">${f.pp}</td>
+      <td class="px-2 py-3 text-center">${f.gf}</td>
+      <td class="px-2 py-3 text-center">${f.gc}</td>
       <td class="px-2 py-3 text-center ${f.dg > 0 ? 'text-emerald-400' : f.dg < 0 ? 'text-rose-400' : ''}">${f.dg > 0 ? '+' : ''}${f.dg}</td>
       <td class="px-4 py-3 text-center font-black text-emerald-400">${f.puntos}</td>
     </tr>`;

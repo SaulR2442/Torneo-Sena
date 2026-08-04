@@ -580,7 +580,9 @@ tr.fila-equipo:hover {
 }
 
 .ver-plantilla {
-  display: none;
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -589,16 +591,25 @@ tr.fila-equipo:hover {
   background: rgba(245, 158, 11, .10);
   border: 1px solid rgba(245, 158, 11, .30);
   border-radius: .35rem;
-  padding: .12rem .5rem;
+  padding: .15rem .5rem;
   white-space: nowrap;
-  opacity: .6;
-  transition: opacity .18s ease;
+  cursor: pointer;
+  transition: opacity .18s ease, background-color .18s ease, transform .12s ease;
 }
 tr.fila-equipo:hover .ver-plantilla {
   opacity: 1;
+  background: rgba(245, 158, 11, .16);
 }
-@media (min-width: 640px) {
-  .ver-plantilla { display: inline-block; }
+.ver-plantilla:active {
+  transform: scale(.95);
+}
+@media (max-width: 639px) {
+  .ver-plantilla {
+    font-size: 10px;
+    padding: .1rem .35rem;
+    opacity: 1;
+  }
+  .ver-plantilla-texto { display: none; }
 }
 
 /* ============================================================
@@ -852,6 +863,7 @@ html {
    márgenes de respaldo. En Grid, `gap` funciona desde iOS 10.3. */
 
 /* 3) Desplazamiento horizontal suave en tablas, bracket y menús */
+.table-responsive,
 .overflow-x-auto,
 .overflow-y-auto,
 .overflow-auto {
@@ -888,4 +900,68 @@ button,
   textarea {
     font-size: 16px !important;
   }
+}
+
+/* ============================================================
+   RESPONSIVIDAD: TABLA DE POSICIONES (#posiciones)
+   Scroll horizontal propio y contenido completo en móviles.
+   ============================================================ */
+
+/* Respaldo de las utilidades -mx-4 sm:mx-0 px-4 sm:px-0:
+   el scroll del contenedor llega al borde de la pantalla en
+   móvil con aire de 1rem a los lados, y en ≥640px vuelve a la
+   cuadrícula normal del <main>. */
+.table-responsive {
+  margin-left: -1rem;
+  margin-right: -1rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  overflow-x: auto;
+}
+@media (min-width: 640px) {
+  .table-responsive {
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* La tabla nunca se comprime: todas las columnas (PJ, PG, PE,
+   PP, GF, GC, DG, PTS) se conservan y se deslizan con scroll
+   horizontal limpio en pantallas pequeñas. */
+#posiciones table {
+  min-width: 650px;
+}
+
+/* Chip CLASIFICADO: más compacto en móvil para no robar
+   espacio horizontal a la columna Equipo (puede envolverse
+   debajo del nombre gracias a flex-wrap). */
+@media (max-width: 639px) {
+  .chip-clasificado {
+    font-size: 9px;
+    padding: .1rem .35rem;
+    letter-spacing: .04em;
+  }
+}
+
+/* Toda la fila es interactiva al toque en móvil */
+tr.fila-equipo:active {
+  background: rgba(30, 41, 59, .55);
+}
+
+/* ============================================================
+   GUARDA GENERAL DE DESBORDE HORIZONTAL
+   Ningún contenedor rompe el <body>: cualquier tabla ancha
+   (p. ej. las del reglamento Markdown) desliza dentro de sí.
+   ============================================================ */
+body {
+  overflow-x: clip;
+}
+
+.reglas-md table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
