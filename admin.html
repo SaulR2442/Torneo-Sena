@@ -225,19 +225,64 @@
       <!-- ===== ELIMINATORIA ===== -->
       <section id="sec-eliminatoria" class="pestana">
         <h2 class="text-xl font-black mb-4">Fase Eliminatoria</h2>
-        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 mb-6 flex flex-wrap items-end gap-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Equipos clasificados</label>
-            <select id="elim-clasificados" class="campo w-48">
-              <option value="4">4 equipos</option>
-              <option value="8">8 equipos</option>
-              <option value="16">16 equipos</option>
-              <option value="32">32 equipos</option>
-            </select>
-          </div>
-          <button id="btn-generar-cuadro" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Generar cuadro</button>
-          <p class="text-[11px] text-slate-500 max-w-xs">Regenerar el cuadro borra los partidos de eliminatoria existentes (no los de Todos contra Todos).</p>
+
+        <div class="var-banner mb-6">
+          <p class="var-titulo">Formato de clasificación</p>
+          <p class="var-texto">El <strong>1º y 2º</strong> clasifican <strong>directo a Semifinales</strong> y esperan a su rival · El <strong>3º, 4º, 5º y 6º</strong> juegan los <strong>Cuartos de Final</strong> (3º vs 6º y 4º vs 5º) · El <strong>7º</strong> queda eliminado.</p>
         </div>
+
+        <div class="grid md:grid-cols-2 gap-4 mb-6">
+          <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-0.5">⭐ Directos a Semifinales</p>
+            <p class="text-11 text-slate-500 mb-4">Quedan asignados a su llave a la espera del ganador de cuartos.</p>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="pos-chip">1º</span>
+                <select id="elim-pos1" class="campo w-full"></select>
+                <span class="text-xs text-slate-500 whitespace-nowrap shrink-0">→ SF 1</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="pos-chip">2º</span>
+                <select id="elim-pos2" class="campo w-full"></select>
+                <span class="text-xs text-slate-500 whitespace-nowrap shrink-0">→ SF 2</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-0.5">⚔️ Cuartos de Final (Repechaje)</p>
+            <p class="text-11 text-slate-500 mb-4">Los ganadores esperan al 1º y 2º en sus semifinales.</p>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="pos-chip">3º</span>
+                <select id="elim-pos3" class="campo w-full"></select>
+                <span class="text-xs text-slate-500 shrink-0">vs</span>
+                <select id="elim-pos6" class="campo w-full"></select>
+                <span class="pos-chip">6º</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="pos-chip">4º</span>
+                <select id="elim-pos4" class="campo w-full"></select>
+                <span class="text-xs text-slate-500 shrink-0">vs</span>
+                <select id="elim-pos5" class="campo w-full"></select>
+                <span class="pos-chip">5º</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 mt-3 pt-3 border-t border-slate-800">
+              <span class="pos-chip">7º</span>
+              <span class="text-xs text-rose-400 font-bold uppercase tracking-wider">Eliminado de la fase final</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 mb-6 flex flex-wrap items-center gap-3">
+          <button id="btn-armar-cuartos" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Armar Cuartos de Final</button>
+          <button id="btn-guardar-eliminatorias" disabled class="btn-desactivado px-5 py-2.5 rounded-lg bg-emerald-600 font-bold text-sm">Guardar y Publicar Eliminatorias</button>
+          <p class="text-11 text-slate-500 max-w-xs">Publicar inserta los cruces de cuartos y las llaves de semifinales. Reemplaza los partidos de eliminatoria existentes (no toca la fase de Todos contra Todos).</p>
+        </div>
+
+        <div id="elim-preview" class="mb-6"></div>
+        <h3 class="font-bold mb-3">Cuadro eliminatorio</h3>
         <div id="bracket-admin" class="rounded-xl border border-slate-800 bg-slate-950/60 p-4"></div>
       </section>
 
@@ -356,6 +401,6 @@
   </style>
 
   <script src="js/marked.min.js?v=1.0.1" defer></script>
-  <script type="module" src="js/admin.js?v=1.0.2"></script>
+  <script type="module" src="js/admin.js?v=1.0.3"></script>
 </body>
 </html>

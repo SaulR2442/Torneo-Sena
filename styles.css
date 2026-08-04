@@ -1061,6 +1061,26 @@ body {
   cursor: not-allowed;
 }
 
+/* Chip de posición en tabla (1º, 2º, 3º...) de la fase eliminatoria */
+.pos-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.9rem;
+  height: 1.9rem;
+  padding: 0 .45rem;
+  border-radius: .45rem;
+  font-family: 'Oswald', 'Montserrat', sans-serif;
+  font-weight: 800;
+  font-size: .75rem;
+  line-height: 1;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, .10);
+  border: 1px solid rgba(245, 158, 11, .45);
+  box-shadow: 0 0 10px rgba(212, 175, 55, .15);
+  -webkit-box-shadow: 0 0 10px rgba(212, 175, 55, .15);
+}
+
 /* ============================================================
    CORRECCIÓN FORZADA: MENÚ DE NAVEGACIÓN DEL ADMIN EN MÓVILES
    (final del archivo = máxima prioridad sobre Tailwind y reglas

@@ -670,10 +670,30 @@ $('btn-guardar-fixture').addEventListener('click', async () => {
 
 // ============================================================
 // ELIMINATORIA
+// Formato del torneo:
+//   1º y 2º -> directos a Semifinales (SF1 y SF2)
+//   3º-6º   -> Cuartos de Final (3º vs 6º y 4º vs 5º)
+//   7º      -> eliminado
 // ============================================================
+let elimArmado = null;
+
 async function renderEliminatoria() {
   await cargarBase();
-  $('elim-clasificados').value = String(state.config.num_clasificados || 8);
+  const opciones = opcionesSelect(state.equipos, '', 'Elige equipo…');
+  for (let i = 1; i <= 6; i++) $(`elim-pos${i}`).innerHTML = opciones;
+  if (elimArmado) {
+    // Mantiene la selección previa del administrador
+    for (let i = 1; i <= 6; i++) $(`elim-pos${i}`).value = elimArmado[`pos${i}`] || '';
+  } else {
+    // Pre-carga con la tabla de posiciones actual como punto de partida
+    const { data: tabla } = await supabase.from('tabla_posiciones').select('*');
+    const orden = (tabla || [])
+      .sort((a, b) => b.puntos - a.puntos || b.dg - a.dg || b.gf - a.gf || a.nombre.localeCompare(b.nombre));
+    orden.slice(0, 6).forEach((f, i) => { $(`elim-pos${i + 1}`).value = f.equipo_id || ''; });
+  }
+  actualizarBtnGuardarElim();
+  pintarElimPreview();
+
   const porId = Object.fromEntries(state.equipos.map(e => [e.id, e]));
   const conEquipos = state.partidos.map(p => ({ ...p, equipo_local: porId[p.equipo_local_id] || null, equipo_visitante: porId[p.equipo_visitante_id] || null }));
   renderBracket($('bracket-admin'), conEquipos, {
@@ -683,34 +703,110 @@ async function renderEliminatoria() {
   });
 }
 
-$('btn-generar-cuadro').addEventListener('click', async () => {
-  const N = Number($('elim-clasificados').value);
-  const plantilla = {
-    4: [['semifinal', 2], ['final', 1]],
-    8: [['cuartos', 4], ['semifinal', 2], ['final', 1]],
-    16: [['octavos', 8], ['cuartos', 4], ['semifinal', 2], ['final', 1]],
-    32: [['dieciseisavos', 16], ['octavos', 8], ['cuartos', 4], ['semifinal', 2], ['final', 1]]
-  }[N];
-  if (!plantilla) { toast('Cantidad de clasificados no válida', 'error'); return; }
-  if (!(await confirmar(
-    `Se generará un cuadro de ${N} equipos. Esto BORRARÁ los partidos de eliminatoria actuales (no toca la fase de Todos contra Todos). ¿Continuar?`,
-    'Generar cuadro eliminatorio'
-  ))) return;
-  const filas = [];
-  plantilla.forEach(([fase, n]) => {
-    for (let i = 1; i <= n; i++) {
-      filas.push({ fase, posicion_bracket: i, goles_local: 0, goles_visitante: 0, jugado: false });
-    }
-  });
-  filas.push({ fase: 'tercer_lugar', posicion_bracket: 1, goles_local: 0, goles_visitante: 0, jugado: false });
+function actualizarBtnGuardarElim() {
+  const activo = !!elimArmado;
+  $('btn-guardar-eliminatorias').classList.toggle('btn-desactivado', !activo);
+  $('btn-guardar-eliminatorias').disabled = !activo;
+  $('btn-guardar-eliminatorias').textContent = activo && elimArmado.guardado
+    ? 'Guardar y Publicar Eliminatorias · Actualizada'
+    : 'Guardar y Publicar Eliminatorias';
+}
 
-  await supabase.from('partidos').delete().or('fase.neq.grupos,fase.is.null');
-  await supabase.from('config').update({ valor: String(N) }).eq('clave', 'num_clasificados');
-  const { error } = await supabase.from('partidos').insert(filas);
-  if (error) { toast('Error al generar el cuadro: ' + error.message, 'error'); return; }
-  toast(`Cuadro de ${N} equipos generado. Asigna los equipos a cada cruce.`);
-  renderEliminatoria();
+$('btn-armar-cuartos').addEventListener('click', () => {
+  const pos = {};
+  for (let i = 1; i <= 6; i++) pos[i] = $(`elim-pos${i}`).value;
+  const faltantes = [1, 2, 3, 4, 5, 6].filter(n => !pos[n]);
+  if (faltantes.length) {
+    toast(`Faltan equipos en la posición ${faltantes[0]}${faltantes.length > 1 ? ` y ${faltantes.length - 1} más` : ''}`, 'error');
+    return;
+  }
+  if (new Set(Object.values(pos)).size !== 6) {
+    toast('Cada equipo debe ocupar una sola posición', 'error');
+    return;
+  }
+  elimArmado = {
+    pos1: pos[1], pos2: pos[2], pos3: pos[3], pos4: pos[4], pos5: pos[5], pos6: pos[6],
+    cuartos: [
+      { fase: 'cuartos', posicion_bracket: 1, local: pos[3], visitante: pos[6] },
+      { fase: 'cuartos', posicion_bracket: 2, local: pos[4], visitante: pos[5] }
+    ],
+    semifinales: [
+      // El directo (1º/2º) queda a la espera del ganador de su cuartos
+      { fase: 'semifinal', posicion_bracket: 1, local: pos[1], visitante: null },
+      { fase: 'semifinal', posicion_bracket: 2, local: pos[2], visitante: null }
+    ],
+    guardado: false
+  };
+  actualizarBtnGuardarElim();
+  pintarElimPreview();
+  toast('Cruces de cuartos armados. Revisa y publica.');
 });
+
+function pintarElimPreview() {
+  const caja = $('elim-preview');
+  if (!elimArmado) { caja.innerHTML = ''; return; }
+  const porId = Object.fromEntries(state.equipos.map(e => [e.id, e]));
+  const eq = id => porId[id] || null;
+  const filaEquipo = (t) => t
+    ? `<span class="flex items-center gap-2 min-w-0">${escudo(t, 'w-6 h-6')}<span class="font-semibold text-sm truncate">${esc(t.nombre)}</span></span>`
+    : '<span class="text-xs text-slate-500 italic shrink-0">Ganador por definir</span>';
+  const cruce = (titulo, local, visitante) => `
+    <div class="flex items-center justify-between gap-2 rounded-lg bg-slate-950/60 border border-slate-700/60 px-3 py-2">
+      <span class="text-11 uppercase tracking-wider text-slate-500 font-bold shrink-0 w-10">${titulo}</span>
+      ${filaEquipo(local)}
+      <span class="text-xs font-black text-slate-500 shrink-0 whitespace-nowrap">vs</span>
+      ${filaEquipo(visitante)}
+    </div>`;
+  const [c1, c2] = elimArmado.cuartos;
+  const [s1, s2] = elimArmado.semifinales;
+  caja.innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="rounded-xl border bg-slate-900/60 overflow-hidden">
+        <div class="px-4 py-3 border-b border-yellow-500/30 flex items-center justify-between gap-2">
+          <p class="text-gold font-black uppercase tracking-wider text-sm">⚔️ Cuartos de Final</p>
+          <span class="text-xs text-slate-500 whitespace-nowrap">2 cruces</span>
+        </div>
+        <div class="p-3 space-y-2">
+          ${cruce('3º vs 6º', eq(c1.local), eq(c1.visitante))}
+          ${cruce('4º vs 5º', eq(c2.local), eq(c2.visitante))}
+        </div>
+      </div>
+      <div class="rounded-xl border bg-slate-900/60 overflow-hidden">
+        <div class="px-4 py-3 border-b border-yellow-500/30 flex items-center justify-between gap-2">
+          <p class="text-gold font-black uppercase tracking-wider text-sm">⭐ Semifinales</p>
+          <span class="text-xs text-slate-500 whitespace-nowrap">1º y 2º esperan</span>
+        </div>
+        <div class="p-3 space-y-2">
+          ${cruce('SF 1', eq(s1.local), eq(s1.visitante))}
+          ${cruce('SF 2', eq(s2.local), eq(s2.visitante))}
+        </div>
+      </div>
+    </div>`;
+}
+
+async function guardarEliminatorias() {
+  if (!elimArmado) { toast('Primero arma los cuartos de final', 'error'); return; }
+  const msg = elimArmado.guardado
+    ? 'Ya hay eliminatorias publicadas. Al guardar se reemplazarán por la nueva configuración. ¿Continuar?'
+    : 'Se publicarán 2 cruces de Cuartos de Final y las llaves de Semifinales con el 1º y 2º a la espera de sus rivales. ¿Continuar?';
+  if (!(await confirmar(msg, 'Guardar y publicar eliminatorias'))) return;
+  const { error } = await supabase.from('partidos').delete().or('fase.neq.grupos,fase.is.null');
+  if (error) { toast('Error al limpiar eliminatorias: ' + error.message, 'error'); return; }
+  const base = { goles_local: 0, goles_visitante: 0, jugado: false, ganador_id: null, sede: 'SENA', estado: 'PENDIENTE' };
+  const filas = [
+    ...elimArmado.cuartos.map(c => ({ fase: c.fase, posicion_bracket: c.posicion_bracket, equipo_local_id: c.local, equipo_visitante_id: c.visitante, ...base })),
+    ...elimArmado.semifinales.map(s => ({ fase: s.fase, posicion_bracket: s.posicion_bracket, equipo_local_id: s.local, equipo_visitante_id: s.visitante, ...base })),
+    { fase: 'final', posicion_bracket: 1, equipo_local_id: null, equipo_visitante_id: null, ...base },
+    { fase: 'tercer_lugar', posicion_bracket: 1, equipo_local_id: null, equipo_visitante_id: null, ...base }
+  ];
+  const { error: errInsert } = await supabase.from('partidos').insert(filas);
+  if (errInsert) { toast('Error al publicar eliminatorias: ' + errInsert.message, 'error'); return; }
+  elimArmado.guardado = true;
+  toast('Eliminatorias publicadas: 2 cuartos + 2 semifinales');
+  renderEliminatoria();
+}
+
+$('btn-guardar-eliminatorias').addEventListener('click', guardarEliminatorias);
 
 async function guardarEliminatoria(id, datos) {
   if (datos.equipo_local_id && datos.equipo_local_id === datos.equipo_visitante_id) {
@@ -729,6 +825,18 @@ async function guardarEliminatoria(id, datos) {
   const perdedor = ganador === datos.equipo_local_id ? datos.equipo_visitante_id : ganador === datos.equipo_visitante_id ? datos.equipo_local_id : null;
   if (!ganador) { toast('Empate: no se puede avanzar en eliminatoria. Define un ganador.', 'error'); return; }
   await supabase.from('partidos').update({ ganador_id: ganador }).eq('id', id);
+
+  // Cuartos: el ganador espera en la llave de su semifinal (visitante,
+  // pues el 1º/2º ya ocupa el local)
+  if (partido.fase === 'cuartos') {
+    const { data: sig } = await supabase.from('partidos').select('*').eq('fase', 'semifinal').eq('posicion_bracket', partido.posicion_bracket);
+    if (sig?.length) {
+      await supabase.from('partidos').update({ equipo_visitante_id: ganador }).eq('id', sig[0].id);
+    }
+    toast('Resultado guardado: el ganador avanza a su semifinal');
+    renderEliminatoria();
+    return;
+  }
 
   const idx = ORDEN_ELIMINATORIA.indexOf(partido.fase);
   if (idx >= 0 && idx + 1 < ORDEN_ELIMINATORIA.length) {
