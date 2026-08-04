@@ -1023,6 +1023,45 @@ body {
 }
 
 /* ============================================================
+   MÓDULO FIXTURE "TODOS CONTRA TODOS" (panel admin)
+   Tarjetas doradas por jornada + chip de descanso
+   ============================================================ */
+
+/* Texto dorado trofeo (títulos y acentos del módulo) */
+.text-gold {
+  color: #fbbf24;
+}
+
+/* Nota pequeña a 11px (respaldo de text-[11px]) */
+.text-11 {
+  font-size: 11px;
+}
+
+/* Chip "Descansa": equipo sin rival en la jornada */
+.descansa-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, .10);
+  border: 1px solid rgba(245, 158, 11, .45);
+  border-radius: 9999px;
+  padding: .15rem .6rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Botón deshabilitado del fixture (respaldo de opacity-50/pointer-events) */
+.btn-desactivado {
+  opacity: .4;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* ============================================================
    CORRECCIÓN FORZADA: MENÚ DE NAVEGACIÓN DEL ADMIN EN MÓVILES
    (final del archivo = máxima prioridad sobre Tailwind y reglas
    anteriores, incluido el heredado width:100%/grid de botones)

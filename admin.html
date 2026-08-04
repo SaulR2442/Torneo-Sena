@@ -43,6 +43,7 @@
         <button data-tab="equipos" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">🛡️ Equipos</button>
         <button data-tab="jugadores" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">👤 Jugadores</button>
         <button data-tab="partidos" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📋 Partidos</button>
+        <button data-tab="fixture" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">⚽ Todos contra Todos</button>
         <button data-tab="eliminatoria" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">🏆 Eliminatoria</button>
         <button data-tab="estadisticas" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📈 Estadísticas</button>
         <button data-tab="reglas" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📜 Reglamento</button>
@@ -64,6 +65,7 @@
           <div class="flex flex-wrap gap-2 text-sm">
             <button data-tab="equipos" class="tab-btn px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold">Registrar equipo</button>
             <button data-tab="partidos" class="tab-btn px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold">Registrar resultado</button>
+            <button data-tab="fixture" class="tab-btn px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold">Generar fixture</button>
             <button data-tab="eliminatoria" class="tab-btn px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold">Armar eliminatoria</button>
             <button data-tab="galeria" class="tab-btn px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold">Subir fotos/videos</button>
           </div>
@@ -205,6 +207,21 @@
         <div id="lista-partidos" class="space-y-3 overflow-x-auto"></div>
       </section>
 
+      <!-- ===== TODOS CONTRA TODOS (FIXTURE) ===== -->
+      <section id="sec-fixture" class="pestana">
+        <h2 class="text-xl font-black mb-4">Generar Todos contra Todos</h2>
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 mb-6">
+          <p class="text-sm text-slate-400 mb-4">El sistema arma automáticamente el calendario de liga con el algoritmo Round-Robin: cada equipo se enfrenta una vez a todos los demás. Si hay un número impar de equipos, uno <strong class="text-gold">descansa</strong> en cada fecha.</p>
+          <div class="flex flex-wrap items-center gap-3">
+            <button id="btn-generar-fixture" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Generar Calendario Todos contra Todos</button>
+            <button id="btn-guardar-fixture" disabled class="btn-desactivado px-5 py-2.5 rounded-lg bg-emerald-600 font-bold text-sm">Guardar y Publicar Fixture</button>
+            <span id="info-fixture" class="text-xs text-slate-500"></span>
+          </div>
+          <p class="text-11 text-slate-500 mt-3">Al publicar se reemplazan los partidos generados de la fase "Todos contra Todos" y aparecen automáticamente en la vista pública de los usuarios.</p>
+        </div>
+        <div id="fixture-preview" class="overflow-x-auto"></div>
+      </section>
+
       <!-- ===== ELIMINATORIA ===== -->
       <section id="sec-eliminatoria" class="pestana">
         <h2 class="text-xl font-black mb-4">Fase Eliminatoria</h2>
@@ -339,6 +356,6 @@
   </style>
 
   <script src="js/marked.min.js?v=1.0.1" defer></script>
-  <script type="module" src="js/admin.js?v=1.0.1"></script>
+  <script type="module" src="js/admin.js?v=1.0.2"></script>
 </body>
 </html>

@@ -172,7 +172,7 @@ async function pintarPartidos() {
     return `
       <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
         <div class="flex items-center justify-between text-[10px] uppercase tracking-wider text-slate-500 mb-1">
-          <span>${ETIQUETAS_FASE[p.fase] ?? p.fase}${p.grupo ? ` · Grupo ${p.grupo}` : ''}</span>
+          <span>${ETIQUETAS_FASE[p.fase] ?? p.fase}${p.jornada ? ` · ${esc(p.jornada)}` : ''}${p.grupo ? ` · Grupo ${p.grupo}` : ''}</span>
           <span>${fmtFecha(p.fecha)}</span>
         </div>
         <div class="grid grid-cols-2 gap-x-4">

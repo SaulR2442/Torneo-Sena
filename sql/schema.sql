@@ -53,6 +53,8 @@ create table if not exists public.jugadores (
 -- fase: grupos (Todos contra Todos) | dieciseisavos | octavos |
 --       cuartos | semifinal | final | tercer_lugar
 -- fecha: solo se usa la fecha (día), sin hora
+-- jornada: número de fecha de la fase de liga ("Fecha 1", ...)
+-- estado: estado del partido generado por el fixture ("PENDIENTE")
 -- ============================================================
 create table if not exists public.partidos (
   id uuid primary key default gen_random_uuid(),
@@ -67,6 +69,8 @@ create table if not exists public.partidos (
   ganador_id uuid references public.equipos(id) on delete set null,
   fecha timestamptz,
   sede text,
+  jornada text,
+  estado text default 'PENDIENTE',
   creado_en timestamptz default now()
 );
 

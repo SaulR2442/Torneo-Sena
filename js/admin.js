@@ -38,6 +38,7 @@ function activarTab(nombre) {
   if (nombre === 'equipos') renderEquipos();
   if (nombre === 'jugadores') renderJugadores();
   if (nombre === 'partidos') renderPartidos();
+  if (nombre === 'fixture') renderFixture();
   if (nombre === 'eliminatoria') renderEliminatoria();
   if (nombre === 'estadisticas') renderEstadisticas();
   if (nombre === 'reglas') cargarReglas();
@@ -426,7 +427,7 @@ async function renderPartidos() {
   lista.innerHTML = visibles.map(p => `
     <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 flex flex-wrap items-center gap-3">
       <div class="min-w-0">
-        <p class="text-[10px] uppercase tracking-wider text-slate-500">${ETIQUETAS_FASE[p.fase] ?? p.fase} · ${fmtFecha(p.fecha)}</p>
+        <p class="text-[10px] uppercase tracking-wider text-slate-500">${ETIQUETAS_FASE[p.fase] ?? p.fase}${p.jornada ? ` · ${esc(p.jornada)}` : ''} · ${fmtFecha(p.fecha)}</p>
         <p class="text-sm font-semibold mt-0.5">
           ${esc(porId[p.equipo_local_id]?.nombre ?? 'Pendiente')} <span class="text-slate-500">vs</span> ${esc(porId[p.equipo_visitante_id]?.nombre ?? 'Pendiente')}
         </p>
@@ -526,6 +527,146 @@ $('btn-agregar-gol').addEventListener('click', () => {
 
 $('par-local').addEventListener('change', equiposCambiados);
 $('par-visitante').addEventListener('change', equiposCambiados);
+
+// ============================================================
+// TODOS CONTRA TODOS (FIXTURE AUTOMÁTICO - ROUND ROBIN)
+// ============================================================
+const DESCANS = { id: null, nombre: 'DESCANSA' };
+let fixtureActual = null;
+
+// Algoritmo Round-Robin (método de la circunferencia): genera las
+// jornadas de ida y vuelta de todos contra todos. Con un número par
+// de equipos cada banda juega en su fecha; si son impares se agrega
+// el comodín "DESCANSA" para que nadie quede sin rival.
+function generarRoundRobin(equipos) {
+  let lista = equipos.map(e => ({ ...e }));
+  if (lista.length % 2 === 1) lista.push(DESCANS);
+  const n = lista.length;
+  const jornadas = [];
+  for (let r = 0; r < n - 1; r++) {
+    const partidos = [];
+    for (let i = 0; i < n / 2; i++) {
+      partidos.push({ local: lista[i], visitante: lista[n - 1 - i] });
+    }
+    jornadas.push({ partidos });
+    // Rotación clásica: fija al primero y rota el resto
+    const fijo = lista[0];
+    const rotados = lista.slice(1);
+    rotados.unshift(rotados.pop());
+    lista = [fijo, ...rotados];
+  }
+  return jornadas;
+}
+
+function actualizarBtnGuardar(activo) {
+  $('btn-guardar-fixture').classList.toggle('btn-desactivado', !activo);
+  $('btn-guardar-fixture').disabled = !activo;
+}
+
+async function renderFixture() {
+  await cargarBase();
+  const total = state.equipos.length;
+  const fechas = total >= 2 ? (total % 2 === 1 ? total : total - 1) : 0;
+  const partidos = total >= 2 ? (total * (total - 1)) / 2 : 0;
+  $('info-fixture').textContent = total >= 2
+    ? `${total} equipos · ${fechas} fechas · ${partidos} partidos${total % 2 === 1 ? ' · un equipo descansa por jornada' : ''}`
+    : 'Registra al menos 2 equipos para generar el calendario.';
+  // Si cambiaron los equipos, el fixture pendiente queda obsoleto
+  if (fixtureActual && fixtureActual.nEquipos !== total) fixtureActual = null;
+  if (!fixtureActual) {
+    $('fixture-preview').innerHTML = '<p class="text-slate-500 text-sm">Aún no hay calendario generado. Pulsa "Generar Calendario Todos contra Todos".</p>';
+    actualizarBtnGuardar(false);
+    return;
+  }
+  pintarFixture();
+}
+
+$('btn-generar-fixture').addEventListener('click', () => {
+  if (state.equipos.length < 2) { toast('Se necesitan al menos 2 equipos para generar el fixture', 'error'); return; }
+  fixtureActual = {
+    nEquipos: state.equipos.length,
+    jornadas: generarRoundRobin(state.equipos)
+  };
+  pintarFixture();
+  toast(`Calendario generado: ${fixtureActual.jornadas.length} fechas`);
+});
+
+function pintarFixture() {
+  const caja = $('fixture-preview');
+  const fila = (equipo) => `
+    <span class="flex items-center gap-2 min-w-0">${escudo(equipo, 'w-6 h-6')}<span class="font-semibold text-sm truncate">${esc(equipo.nombre)}</span></span>`;
+  caja.innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      ${fixtureActual.jornadas.map((j, i) => {
+        const reales = j.partidos.filter(p => p.local?.id && p.visitante?.id).length;
+        const descansa = j.partidos.length - reales;
+        return `
+        <div class="rounded-xl border bg-slate-900/60 overflow-hidden">
+          <div class="px-4 py-3 border-b border-yellow-500/30 flex items-center justify-between gap-2">
+            <p class="text-gold font-black uppercase tracking-wider text-sm">📅 Fecha ${i + 1}</p>
+            <span class="text-xs text-slate-500 whitespace-nowrap">${reales} partido${reales !== 1 ? 's' : ''}${descansa ? ' · 1 descansa' : ''}</span>
+          </div>
+          <div class="p-3 space-y-2">
+            ${j.partidos.map(p => {
+              if (!p.local?.id || !p.visitante?.id) {
+                const activo = p.local?.id ? p.local : p.visitante;
+                return `
+                <div class="flex items-center justify-between gap-2 rounded-lg bg-slate-950/60 border border-slate-700/60 px-3 py-2">
+                  ${fila(activo)}
+                  <span class="descansa-chip">Descansa</span>
+                </div>`;
+              }
+              return `
+                <div class="flex items-center justify-between gap-2 rounded-lg bg-slate-950/60 border border-slate-700/60 px-3 py-2">
+                  ${fila(p.local)}
+                  <span class="text-xs font-black text-slate-500 shrink-0 whitespace-nowrap">vs</span>
+                  ${fila(p.visitante)}
+                </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  const publicados = fixtureActual.guardado || 0;
+  $('btn-guardar-fixture').textContent = publicados
+    ? `Guardar y Publicar Fixture · ${publicados} publicado${publicados !== 1 ? 's' : ''}`
+    : 'Guardar y Publicar Fixture';
+  actualizarBtnGuardar(true);
+}
+
+$('btn-guardar-fixture').addEventListener('click', async () => {
+  if (!fixtureActual) { toast('Primero genera el calendario', 'error'); return; }
+  const filas = fixtureActual.jornadas.flatMap((j, i) =>
+    j.partidos
+      .filter(p => p.local?.id && p.visitante?.id)
+      .map(p => ({
+        fase: 'grupos',
+        jornada: `Fecha ${i + 1}`,
+        estado: 'PENDIENTE',
+        equipo_local_id: p.local.id,
+        equipo_visitante_id: p.visitante.id,
+        goles_local: 0,
+        goles_visitante: 0,
+        jugado: false,
+        sede: 'SENA'
+      }))
+  );
+  if (!filas.length) { toast('No hay partidos para guardar', 'error'); return; }
+  const msg = fixtureActual.guardado
+    ? `Ya hay ${fixtureActual.guardado} partidos de liga publicados. Al guardar se reemplazarán por los ${filas.length} nuevos. ¿Continuar?`
+    : `Se publicarán ${filas.length} partidos de la fase "Todos contra Todos" (${fixtureActual.jornadas.length} fechas) y aparecerán en la vista pública. ¿Continuar?`;
+  if (!(await confirmar(msg, 'Guardar y publicar fixture'))) return;
+  // Reemplaza únicamente los partidos de liga generados por el fixture
+  const { error } = await supabase.from('partidos')
+    .delete()
+    .or('fase.eq.grupos,jornada.not.is.null');
+  if (error) { toast('Error al limpiar el fixture anterior: ' + error.message, 'error'); return; }
+  const { error: errInsert } = await supabase.from('partidos').insert(filas);
+  if (errInsert) { toast('Error al guardar el fixture: ' + errInsert.message, 'error'); return; }
+  fixtureActual.guardado = filas.length;
+  toast(`Fixture publicado: ${filas.length} partidos en ${fixtureActual.jornadas.length} fechas`);
+  pintarFixture();
+});
 
 // ============================================================
 // ELIMINATORIA
