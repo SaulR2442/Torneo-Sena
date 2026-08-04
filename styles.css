@@ -1021,3 +1021,41 @@ body {
 .tabla-admin {
   min-width: 560px;
 }
+
+/* ============================================================
+   CORRECCIÓN FORZADA: MENÚ DE NAVEGACIÓN DEL ADMIN EN MÓVILES
+   (final del archivo = máxima prioridad sobre Tailwind y reglas
+   anteriores, incluido el heredado width:100%/grid de botones)
+   ============================================================ */
+.admin-tabs-nav {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  width: 100% !important;
+  gap: 8px !important;
+  padding: 8px 4px !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Fuerza a que CADA botón/pestaña mantenga su tamaño real y no se aplaste */
+.admin-tabs-nav > * {
+  flex: 0 0 auto !important; /* Evita que el flexbox encoja el botón */
+  width: auto !important;
+  min-width: max-content !important; /* El ancho será el del texto e icono */
+  white-space: nowrap !important;
+}
+
+/* En ≥1024px el menú recupera el sidebar vertical (column) sin
+   romper el deslizamiento horizontal de los móviles */
+@media (min-width: 1024px) {
+  .admin-tabs-nav {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    gap: 4px !important;
+    padding: 0 !important;
+  }
+}
