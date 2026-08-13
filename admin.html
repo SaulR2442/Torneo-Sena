@@ -47,9 +47,8 @@
         <button data-tab="eliminatoria" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">🏆 Eliminatoria</button>
        <button data-tab="estadisticas" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📈 Estadísticas</button>
        <button data-tab="finanzas" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">💰 Recaudo</button>
-       <button data-tab="reglas" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📜 Reglamento</button>
+        <button data-tab="reglas" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📜 Reglamento</button>
         <button data-tab="galeria" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">📸 Galería</button>
-        <button data-tab="config" class="tab-btn shrink-0 px-4 py-2.5 rounded-lg text-left whitespace-nowrap text-slate-300 hover:bg-slate-800">⚙️ Configuración</button>
       </nav>
     </aside>
 
@@ -428,43 +427,6 @@
           </div>
         </form>
         <div id="galeria-admin" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
-      </section>
-
-      <!-- ===== CONFIG ===== -->
-      <section id="sec-config" class="pestana">
-        <h2 class="text-xl font-black mb-4">Configuración del Torneo</h2>
-        <form id="form-config" class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 space-y-4 max-w-xl">
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nombre del torneo</label>
-            <input id="cfg-nombre" required class="campo w-full">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Clasificados a eliminatoria</label>
-            <input id="cfg-clasificados" type="number" min="4" step="4" required class="campo w-full">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nota de clasificación (se muestra en la tabla pública)</label>
-            <input id="cfg-nota" class="campo w-full">
-          </div>
-          <div class="border-t border-slate-700/60 pt-4">
-            <p class="text-xs font-semibold text-gold uppercase tracking-wider mb-3">💰 Tesorería (usada por el panel Recaudo)</p>
-            <div class="grid md:grid-cols-3 gap-4">
-              <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Cuota por equipo por partido ($ COP)</label>
-                <input id="cfg-cuota-partido" type="number" min="0" step="1000" class="campo w-full">
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Cuota por jugador ($ COP)</label>
-                <input id="cfg-cuota-jugador" type="number" min="0" step="1000" class="campo w-full">
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">% a la bolsa del premio final</label>
-                <input id="cfg-bolsa-premio" type="number" min="0" max="100" step="1" class="campo w-full">
-              </div>
-            </div>
-          </div>
-          <button type="submit" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">Guardar configuración</button>
-        </form>
       </section>
 
     </main>
