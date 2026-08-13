@@ -329,28 +329,77 @@ function renderListaGoleadores() {
   }
   ul.innerHTML = goleadoresSel.map((g, i) => {
     const j = porJugador[g.jugador_id];
+    const detalle = [
+      g.goles ? `<span class="text-emerald-400">⚽ ${g.goles}</span>` : '',
+      g.autogoles ? `<span class="text-rose-400" title="Autogol">🥅 ${g.autogoles} autogol${g.autogoles !== 1 ? 'es' : ''}</span>` : ''
+    ].filter(Boolean).join(' · ');
     return `
       <li class="flex items-center gap-2">
-        <span class="text-emerald-400 font-black">⚽</span>
+        <span class="text-emerald-400 font-black">${g.autogoles && !g.goles ? '🥅' : '⚽'}</span>
         <span class="font-semibold">${esc(j?.nombre ?? '?')}</span>
         <span class="text-slate-500 text-xs truncate">${esc(equipoNombre(j?.equipo_id))}</span>
-        <span class="ml-auto font-black text-emerald-400">${g.goles} gol${g.goles !== 1 ? 'es' : ''}</span>
+        <span class="ml-auto font-black text-sm">${detalle}</span>
         <button type="button" data-quitar="${i}" class="text-xs px-2 py-1 rounded bg-rose-600/10 text-rose-400 hover:bg-rose-600/20">Quitar</button>
       </li>`;
   }).join('');
   ul.querySelectorAll('[data-quitar]').forEach(b => b.addEventListener('click', () => {
+    const g = goleadoresSel[Number(b.dataset.quitar)];
+    if (g) restarGolesMarcador(g.jugador_id, g.autogoles, g.goles);
     goleadoresSel.splice(Number(b.dataset.quitar), 1);
     actualizarGoleadores();
   }));
 }
 
+// Suma N goles al marcador del equipo que corresponde según el jugador
+// y si el gol fue autogol (autogol del local suma al visitante y viceversa).
+function sumarGolesMarcador(jugadorId, autogol, n) {
+  const jugador = state.jugadores.find(j => j.id === jugadorId);
+  if (!jugador) return;
+  const esLocal = jugador.equipo_id === $('par-local').value;
+  const esVisitante = jugador.equipo_id === $('par-visitante').value;
+  let golLocal = Number($('par-goles-local').value || 0);
+  let golVisit = Number($('par-goles-visitante').value || 0);
+  if (autogol) {
+    if (esLocal) golVisit += n;
+    else if (esVisitante) golLocal += n;
+  } else {
+    if (esLocal) golLocal += n;
+    else if (esVisitante) golVisit += n;
+  }
+  $('par-goles-local').value = golLocal;
+  $('par-goles-visitante').value = golVisit;
+}
+
+// Resta del marcador (sin dejar negativos) los goles y autogoles
+// registrados para un jugador. Primero los autogoles y luego los normales.
+function restarGolesMarcador(jugadorId, autogoles, goles) {
+  const jugador = state.jugadores.find(j => j.id === jugadorId);
+  if (!jugador) return;
+  const esLocal = jugador.equipo_id === $('par-local').value;
+  const esVisitante = jugador.equipo_id === $('par-visitante').value;
+  let golLocal = Number($('par-goles-local').value || 0);
+  let golVisit = Number($('par-goles-visitante').value || 0);
+  if (autogoles > 0) {
+    if (esLocal) golVisit = Math.max(0, golVisit - autogoles);
+    else if (esVisitante) golLocal = Math.max(0, golLocal - autogoles);
+  }
+  if (goles > 0) {
+    if (esLocal) golLocal = Math.max(0, golLocal - goles);
+    else if (esVisitante) golVisit = Math.max(0, golVisit - goles);
+  }
+  $('par-goles-local').value = golLocal;
+  $('par-goles-visitante').value = golVisit;
+}
+
 function actualizarGoleadores() {
   const jugadores = jugadoresDelPartido();
-  const agregados = new Set(goleadoresSel.map(g => g.jugador_id));
   $('gol-jugador').innerHTML = jugadores.length
     ? `<option value="">Elige jugador…</option>` + jugadores
-        .filter(j => !agregados.has(j.id))
-        .map(j => `<option value="${j.id}">${j.nombre} (${equipoNombre(j.equipo_id)})</option>`)
+        .map(j => {
+          const g = goleadoresSel.find(x => x.jugador_id === j.id);
+          const ya = g ? ` · lleva ${g.goles}⚽${g.autogoles ? ` ${g.autogoles}🥅` : ''}` : '';
+          return `<option value="${j.id}">${j.nombre} (${equipoNombre(j.equipo_id)})${ya}</option>`;
+        })
         .join('')
     : '<option value="">Selecciona los equipos primero</option>';
   renderListaGoleadores();
@@ -371,12 +420,72 @@ function renderArbitraje() {
     </label>`).join('');
   caja.querySelectorAll('[data-arb]').forEach(cb => cb.addEventListener('change', () => {
     arbitrajeEstado[cb.dataset.arb] = cb.checked;
+    sincronizarCuotas();
   }));
 }
+
+// Jugadores de los equipos actualmente seleccionados en el formulario
+function jugadoresPorLado() {
+  const local = $('par-local').value, visitante = $('par-visitante').value;
+  return {
+    local: state.jugadores.filter(j => j.equipo_id === local),
+    visitante: state.jugadores.filter(j => j.equipo_id === visitante)
+  };
+}
+
+// Marca/desmarca todos los checkboxes de jugadores de un equipo
+function marcarJugadoresDeEquipo(equipoId, marcado) {
+  document.querySelectorAll('#lista-arbitraje [data-arb]').forEach(cb => {
+    if (equipoId && state.jugadores.find(j => j.id === cb.dataset.arb)?.equipo_id !== equipoId) return;
+    cb.checked = marcado;
+    arbitrajeEstado[cb.dataset.arb] = marcado;
+  });
+}
+
+// Reglas reactivas entre jugadores, cuotas de equipo y arbitraje:
+//  - Todos los jugadores de un equipo pagados  => cuota del equipo marcada
+//  - Cualquier jugador sin pagar                => cuota del equipo desmarcada
+//  - Ambas cuotas marcadas                      => "Arbitraje del encuentro pagado"
+//  - Alguna cuota sin marcar                    => "Arbitraje del encuentro" desmarcado
+function sincronizarCuotas() {
+  const { local, visitante } = jugadoresPorLado();
+  if (local.length) $('par-pago-local').checked = local.every(j => arbitrajeEstado[j.id]);
+  if (visitante.length) $('par-pago-visitante').checked = visitante.every(j => arbitrajeEstado[j.id]);
+  $('par-arbitraje-pagado').checked = $('par-pago-local').checked && $('par-pago-visitante').checked;
+}
+
+// Cuota del equipo local marcada => pago de todos sus jugadores
+$('par-pago-local').addEventListener('change', () => {
+  const { local } = jugadoresPorLado();
+  if (local.length) {
+    marcarJugadoresDeEquipo(local[0].equipo_id, $('par-pago-local').checked);
+    sincronizarCuotas();
+  }
+});
+
+// Cuota del equipo visitante marcada => pago de todos sus jugadores
+$('par-pago-visitante').addEventListener('change', () => {
+  const { visitante } = jugadoresPorLado();
+  if (visitante.length) {
+    marcarJugadoresDeEquipo(visitante[0].equipo_id, $('par-pago-visitante').checked);
+    sincronizarCuotas();
+  }
+});
+
+// "Arbitraje del encuentro pagado" => pago de TODOS los jugadores y cuotas
+$('par-arbitraje-pagado').addEventListener('change', () => {
+  const marcado = $('par-arbitraje-pagado').checked;
+  marcarJugadoresDeEquipo(null, marcado);
+  $('par-pago-local').checked = marcado;
+  $('par-pago-visitante').checked = marcado;
+});
 
 function equiposCambiados() {
   goleadoresSel = [];
   arbitrajeEstado = {};
+  $('par-pago-local').checked = false;
+  $('par-pago-visitante').checked = false;
+  $('par-arbitraje-pagado').checked = false;
   actualizarMarcador();
   actualizarGoleadores();
   renderArbitraje();
@@ -406,8 +515,15 @@ function resetFormPartido() {
 async function cargarGoleadores(partidoId) {
   goleadoresSel = [];
   if (!partidoId) return;
-  const { data } = await supabase.from('estadisticas').select('jugador_id, goles').eq('partido_id', partidoId).gt('goles', 0);
-  goleadoresSel = (data || []).map(r => ({ jugador_id: r.jugador_id, goles: r.goles }));
+  const { data } = await supabase.from('estadisticas')
+    .select('jugador_id, goles, autogoles')
+    .eq('partido_id', partidoId)
+    .or('goles.gt.0,autogoles.gt.0');
+  goleadoresSel = (data || []).map(r => ({
+    jugador_id: r.jugador_id,
+    goles: r.goles || 0,
+    autogoles: r.autogoles || 0
+  }));
 }
 
 async function cargarArbitraje(partidoId) {
@@ -426,18 +542,19 @@ async function guardarGoleadores(partidoId, lista = goleadoresSel) {
       partido_id: partidoId,
       jugador_id: g.jugador_id,
       equipo_id: jugador?.equipo_id,
-      goles: g.goles
+      goles: g.goles || 0,
+      autogoles: g.autogoles || 0
     };
   }).filter(f => f.equipo_id);
   const { error } = await supabase.from('estadisticas').upsert(filas, { onConflict: 'partido_id,jugador_id' });
   if (error) { toast('Error al guardar goleadores: ' + error.message, 'error'); return; }
-  const { data: existentes } = await supabase.from('estadisticas').select('jugador_id, goles, equipo_id').eq('partido_id', partidoId);
+  const { data: existentes } = await supabase.from('estadisticas').select('jugador_id, goles, autogoles, equipo_id').eq('partido_id', partidoId);
   const quitar = (existentes || []).filter(r =>
-    (r.goles || 0) > 0 &&
+    ((r.goles || 0) > 0 || (r.autogoles || 0) > 0) &&
     !lista.some(g => g.jugador_id === r.jugador_id)
   );
   if (quitar.length) {
-    await supabase.from('estadisticas').update({ goles: 0 })
+    await supabase.from('estadisticas').update({ goles: 0, autogoles: 0 })
       .eq('partido_id', partidoId)
       .in('jugador_id', quitar.map(r => r.jugador_id));
   }
@@ -472,11 +589,24 @@ async function renderPartidos() {
   $('par-visitante').innerHTML = opcionesSelect(state.equipos);
   const filtro = $('filtro-partidos');
   const filtroActual = filtro.value;
-  filtro.innerHTML = '<option value="">Todos</option>' +
-    Object.entries(ETIQUETAS_FASE).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+  // Opciones por jornada (orden numérico: Fecha 1, Fecha 2, ...) más una
+  // agrupación para los partidos sin jornada (fase eliminatoria).
+  const jornadas = [...new Set(state.partidos.map(p => p.jornada).filter(Boolean))].sort((a, b) => {
+    const na = Number((String(a).match(/\d+/) || [9999])[0]);
+    const nb = Number((String(b).match(/\d+/) || [9999])[0]);
+    return na - nb;
+  });
+  const haySinJornada = state.partidos.some(p => !p.jornada);
+  filtro.innerHTML = '<option value="">Todas</option>' +
+    jornadas.map(j => `<option value="${esc(j)}">${esc(j)}</option>`).join('') +
+    (haySinJornada ? '<option value="__sin_jornada__">Fase eliminatoria / Sin jornada</option>' : '');
   if (filtroActual) filtro.value = filtroActual;
   const lista = $('lista-partidos');
-  const visibles = state.partidos.filter(p => !filtroActual || p.fase === filtroActual);
+  const visibles = state.partidos.filter(p => {
+    if (!filtroActual) return true;
+    if (filtroActual === '__sin_jornada__') return !p.jornada;
+    return p.jornada === filtroActual;
+  });
   if (!visibles.length) {
     lista.innerHTML = '<p class="text-slate-500 text-sm">No hay partidos registrados.</p>';
     return;
@@ -594,11 +724,18 @@ $('btn-cancelar-partido').addEventListener('click', resetFormPartido);
 $('btn-agregar-gol').addEventListener('click', () => {
   const jid = $('gol-jugador').value;
   const n = Number($('gol-cantidad').value || 1);
+  const autogol = $('gol-autogol').checked;
   if (!jid) { toast('Selecciona un jugador', 'error'); return; }
   const idx = goleadoresSel.findIndex(g => g.jugador_id === jid);
-  if (idx >= 0) goleadoresSel[idx].goles += n;
-  else goleadoresSel.push({ jugador_id: jid, goles: n });
+  if (idx >= 0) {
+    if (autogol) goleadoresSel[idx].autogoles += n;
+    else goleadoresSel[idx].goles += n;
+  } else {
+    goleadoresSel.push({ jugador_id: jid, goles: autogol ? 0 : n, autogoles: autogol ? n : 0 });
+  }
+  sumarGolesMarcador(jid, autogol, n);
   $('gol-cantidad').value = 1;
+  $('gol-autogol').checked = false;
   actualizarGoleadores();
 });
 

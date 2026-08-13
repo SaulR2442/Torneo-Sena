@@ -6,7 +6,7 @@
   <title>Panel · Torneo SENA</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=1.0.7">
+  <link rel="stylesheet" href="styles.css?v=1.0.8">
   <link rel="stylesheet" href="tailwind.css?v=1.0.5">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -198,8 +198,13 @@
             <div class="flex flex-wrap items-center gap-2 mt-3">
               <select id="gol-jugador" class="campo w-full md:w-80"></select>
               <input id="gol-cantidad" type="number" min="1" value="1" class="campo w-20 text-center">
+              <label class="flex items-center gap-2 text-xs cursor-pointer whitespace-nowrap" title="El gol cuenta para el equipo rival y no suma en el ranking del jugador">
+                <input id="gol-autogol" type="checkbox" class="accent-rose-500 w-4 h-4 shrink-0">
+                <span class="text-slate-300">🥅 Autogol</span>
+              </label>
               <button type="button" id="btn-agregar-gol" class="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-xs transition">Agregar goleador</button>
             </div>
+            <p class="text-[11px] text-slate-500 mt-2">El marcador se suma automáticamente: gol normal al equipo del jugador, <strong class="text-rose-400">autogol al rival</strong>. Al pulsar "Quitar" se descuenta del marcador.</p>
             <ul id="lista-goleadores" class="mt-3 space-y-1.5 text-sm"></ul>
           </div>
           <div class="md:col-span-3 rounded-xl border border-slate-700/60 bg-slate-800/40 p-4">
@@ -485,6 +490,6 @@
   </div>
 
   <script src="js/marked.min.js?v=1.0.1" defer></script>
-  <script type="module" src="js/admin.js?v=1.0.6"></script>
+  <script type="module" src="js/admin.js?v=1.0.7"></script>
 </body>
 </html>

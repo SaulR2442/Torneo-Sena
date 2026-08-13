@@ -1417,6 +1417,7 @@ body {
    ============================================================ */
 .bg-rose-500\/15 { background-color: rgba(244, 63, 94, .15); }
 .border-rose-500\/40 { border-color: rgba(244, 63, 94, .40); }
+.accent-rose-500 { accent-color: #f43f5e; }
 .hover\:bg-slate-800:hover { background-color: #1a2236; }
 .min-w-\[720px\] { min-width: 720px; }
 .gap-y-2 { row-gap: .5rem; }

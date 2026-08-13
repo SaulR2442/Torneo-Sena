@@ -82,6 +82,9 @@ create index if not exists idx_partidos_grupo on public.partidos (grupo);
 
 -- ============================================================
 -- ESTADISTICAS (contadores por jugador por partido)
+-- goles: goles normales (los autogoles NO suman al jugador)
+-- autogoles: goles en propia puerta (suman al marcador rival en el
+--            formulario pero no al ranking de goleadores)
 -- ============================================================
 create table if not exists public.estadisticas (
   id uuid primary key default gen_random_uuid(),
@@ -89,6 +92,7 @@ create table if not exists public.estadisticas (
   jugador_id uuid not null references public.jugadores(id) on delete cascade,
   equipo_id uuid not null references public.equipos(id) on delete cascade,
   goles integer default 0,
+  autogoles integer default 0,
   asistencias integer default 0,
   unique (partido_id, jugador_id)
 );
@@ -267,7 +271,8 @@ from resumen;
 
 -- Ranking de jugadores: solo suma estadísticas de partidos FINALIZADOS
 -- (jugado = true o estado = 'FINALIZADO'), para que resultados
--- guardados en partidos sin jugar no inflen el ranking.
+-- guardados en partidos sin jugar no inflen el ranking. Los autogoles
+-- viven en la columna autogoles y nunca suman al jugador.
 create or replace view public.ranking_jugadores
 as
 select
@@ -277,7 +282,8 @@ select
   e.nombre as equipo,
   e.id as equipo_id,
   coalesce(sum(s.goles), 0) as goles,
-  coalesce(sum(s.asistencias), 0) as asistencias
+  coalesce(sum(s.asistencias), 0) as asistencias,
+  coalesce(sum(s.autogoles), 0) as autogoles
 from public.jugadores j
 join public.equipos e on e.id = j.equipo_id
 left join public.estadisticas s

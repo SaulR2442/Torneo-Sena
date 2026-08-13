@@ -8,16 +8,31 @@ marked.setOptions({ breaks: true });
 let config = {};
 let equipos = [];
 let sesion = null;
+let cachePartidos = [];
+let cacheEstadisticas = [];
+let cacheJugadores = [];
 
 const $ = id => document.getElementById(id);
 
-function fmtFechaHora(iso) {
-  if (!iso) return 'Por definir';
-  const d = new Date(iso);
-  const p = n => String(n).padStart(2, '0');
-  const fecha = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
-  const hhmm = `${p(d.getHours())}:${p(d.getMinutes())}`;
-  return hhmm === '12:00' ? fecha : `${fecha} · ${hhmm}`;
+// Un partido cuenta para posiciones/estadísticas si está finalizado:
+// jugado = true (criterio clásico) o estado = 'FINALIZADO' (respaldo).
+const partidoTerminado = p => !!p.jugado || p.estado === 'FINALIZADO';
+
+// Re-consulta la base y re-renderiza las secciones vivas. Se ejecuta al
+// cargar la página, al volver a la pestaña y periódicamente, para que los
+// cambios guardados desde el panel admin se reflejen de inmediato.
+async function refrescarDatosVivos() {
+  const [respPartidos, respStats, respJugadores] = await Promise.all([
+    supabase.from('partidos').select('*').order('fecha', { ascending: true }),
+    supabase.from('estadisticas').select('*'),
+    supabase.from('jugadores').select('*')
+  ]);
+  cachePartidos = respPartidos.data || [];
+  cacheEstadisticas = respStats.data || [];
+  cacheJugadores = respJugadores.data || [];
+  pintarPosiciones();
+  pintarEstadisticas();
+  pintarPartidos();
 }
 
 async function init() {
@@ -39,15 +54,30 @@ async function init() {
   $('nota-clasificacion').textContent = config.nota_clasificacion || '';
 
   pintarSesion();
-  pintarPosiciones();
-  pintarEstadisticas();
-  pintarPartidos();
+  await refrescarDatosVivos();
   pintarEliminatoria();
   pintarGaleria();
   pintarReglas();
+
+  // Refresco automático: al volver a la pestaña o enfocar la ventana y
+  // cada 45 segundos en segundo plano para tener el sitio siempre al día.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refrescarDatosVivos();
+  });
+  window.addEventListener('focus', refrescarDatosVivos);
+  setInterval(refrescarDatosVivos, 45000);
 }
 
-function pintarSesion() {
+function fmtFechaHora(iso) {
+  if (!iso) return 'Por definir';
+  const d = new Date(iso);
+  const p = n => String(n).padStart(2, '0');
+  const fecha = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+  const hhmm = `${p(d.getHours())}:${p(d.getMinutes())}`;
+  return hhmm === '12:00' ? fecha : `${fecha} · ${hhmm}`;
+}
+
+async function pintarSesion() {
   const btn = $('btn-sesion');
   if (sesion) {
     btn.textContent = 'Panel';
@@ -60,12 +90,41 @@ function pintarSesion() {
 // ============ POSICIONES ============
 let grupoActivo = 'TODOS';
 
-async function pintarPosiciones() {
-  const { data } = await supabase.from('tabla_posiciones').select('*');
-  const filas = data || [];
+// Calcula la tabla de posiciones en el cliente leyendo SOLO partidos
+// finalizados (jugado o estado FINALIZADO) de la fase "grupos":
+// victoria +3, empate +1, derrota +0. PJ, PG, PE, PP, GF, GC, DG y
+// PTS se recalculan con cada refresco sin depender de vistas SQL.
+function calcularPosiciones(partidos) {
+  const filas = equipos.map(e => ({
+    equipo_id: e.id,
+    nombre: e.nombre,
+    escudo_url: e.escudo_url,
+    grupo: e.grupo,
+    pj: 0, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0, puntos: 0, dg: 0
+  }));
+  const porId = Object.fromEntries(filas.map(f => [f.equipo_id, f]));
+  partidos.forEach(p => {
+    if (!partidoTerminado(p) || p.fase !== 'grupos') return;
+    const local = porId[p.equipo_local_id];
+    const visitante = porId[p.equipo_visitante_id];
+    if (!local || !visitante) return;
+    const gl = p.goles_local ?? 0;
+    const gv = p.goles_visitante ?? 0;
+    local.pj++; visitante.pj++;
+    local.gf += gl; local.gc += gv;
+    visitante.gf += gv; visitante.gc += gl;
+    if (gl > gv) { local.pg++; visitante.pp++; }
+    else if (gv > gl) { visitante.pg++; local.pp++; }
+    else { local.pe++; visitante.pe++; }
+  });
+  filas.forEach(f => { f.puntos = f.pg * 3 + f.pe; f.dg = f.gf - f.gc; });
+  return filas;
+}
+
+function pintarPosiciones() {
+  const filas = calcularPosiciones(cachePartidos);
   // Misma fuente de datos que el panel admin: la tabla "equipos"
-  // (contiene siempre escudo_url). La vista tabla_posiciones puede
-  // estar desactualizada y no exponer el campo.
+  // (contiene siempre escudo_url) para mostrar los escudos.
   const porId = Object.fromEntries(equipos.map(e => [e.id, e]));
   const grupos = [...new Set(filas.map(f => f.grupo).filter(Boolean))].sort();
 
@@ -136,9 +195,33 @@ $('tbody-posiciones').addEventListener('click', e => {
 });
 
 // ============ ESTADISTICAS ============
-async function pintarEstadisticas() {
-  const { data } = await supabase.from('ranking_jugadores').select('*');
-  const jugadores = (data || []).filter(j => j.goles > 0 || j.asistencias > 0);
+// Ranking calculado en el cliente: suma goles/asistencias de los
+// partidos FINALIZADOS (jugado o estado FINALIZADO). Los autogoles
+// se guardan aparte (columna autogoles) y nunca suman al jugador.
+function calcularRanking() {
+  const terminados = new Set(cachePartidos.filter(partidoTerminado).map(p => p.id));
+  const porJugador = {};
+  cacheEstadisticas.forEach(s => {
+    if (!terminados.has(s.partido_id)) return;
+    const fila = porJugador[s.jugador_id] ||= { goles: 0, asistencias: 0 };
+    fila.goles += s.goles || 0;
+    fila.asistencias += s.asistencias || 0;
+  });
+  const infoJugador = Object.fromEntries(cacheJugadores.map(j => [j.id, j]));
+  const infoEquipo = Object.fromEntries(equipos.map(e => [e.id, e]));
+  return Object.entries(porJugador).map(([jugadorId, f]) => {
+    const j = infoJugador[jugadorId];
+    return {
+      jugador: j?.nombre || 'Jugador',
+      equipo: (j && infoEquipo[j.equipo_id]?.nombre) || '',
+      goles: f.goles,
+      asistencias: f.asistencias
+    };
+  }).filter(j => j.goles > 0 || j.asistencias > 0);
+}
+
+function pintarEstadisticas() {
+  const jugadores = calcularRanking();
   const top = (lista, campo, n = 5, icono = '') => {
     const orden = [...lista].sort((a, b) => b[campo] - a[campo]).slice(0, n);
     if (!orden.length) return '<li class="text-slate-600 text-xs">Sin datos aún</li>';
@@ -170,9 +253,8 @@ async function pintarEstadisticas() {
 let fechaPartidosActiva = 'TODAS';
 let gruposFixture = [];
 
-async function pintarPartidos() {
-  const { data } = await supabase.from('partidos').select('*').order('fecha', { ascending: true });
-  gruposFixture = agruparPorFecha(data || []);
+function pintarPartidos() {
+  gruposFixture = agruparPorFecha(cachePartidos);
   pintarTabsFechas();
   pintarGridFechas();
 }
