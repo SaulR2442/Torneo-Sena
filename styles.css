@@ -1409,3 +1409,25 @@ body {
    tailwind.css compilado; se agregan como respaldo manual) */
 .w-7 { width: 1.75rem; }
 .h-7 { height: 1.75rem; }
+
+/* ============================================================
+   RESPALDOS MANUALES DEL PANEL FINANCIERO (admin)
+   Utilidades usadas por el módulo Recaudo que no están en el
+   tailwind.css compilado.
+   ============================================================ */
+.bg-rose-500\/15 { background-color: rgba(244, 63, 94, .15); }
+.border-rose-500\/40 { border-color: rgba(244, 63, 94, .40); }
+.hover\:bg-slate-800:hover { background-color: #1a2236; }
+.min-w-\[720px\] { min-width: 720px; }
+.gap-y-2 { row-gap: .5rem; }
+.gap-2\.5 { gap: .625rem; }
+.px-2\.5 { padding-left: .625rem; padding-right: .625rem; }
+.py-1\.5 { padding-top: .375rem; padding-bottom: .375rem; }
+.py-0\.5 { padding-top: .125rem; padding-bottom: .125rem; }
+.py-2\.5 { padding-top: .625rem; padding-bottom: .625rem; }
+.pb-2\.5 { padding-bottom: .625rem; }
+.space-y-1\.5 > * + * { margin-top: .375rem; }
+.text-\[9px\] { font-size: 9px; }
+@media (min-width: 640px) {
+  .sm\:grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+}

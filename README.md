@@ -42,11 +42,12 @@ torneo-sena/
 1. 🆕 Crea un proyecto en **supabase.com** (gratis, tarda 2–3 min).
 2. 🧪 Abre **SQL Editor → New query**, pega TODO `sql/schema.sql` y ejecuta.
    *(Eso crea tablas, permisos, vistas y el bucket de escudos. Si lo corres otra vez, no se queja.)*
-3. 🪪 Crea los administradores:
+3. 💰 **Módulo de tesorería (opcional):** si instalas la app ya existente, ejecuta `sql/financiero.sql` para añadir las columnas de pago (`pago_local`, `pago_visitante`, `arbitraje_pagado`), las cuotas configurables y la corrección de la tabla de posiciones (partidos `FINALIZADO`).
+4. 🪪 Crea los administradores:
    - **Opción A (rápida):** en Authentication → Users agrega los correos, y registra esos mismos correos en la tabla `administradores`.
    - **Opción B (pro):** despliega la Edge Function `registrar-admin` con `supabase functions deploy registrar-admin --no-verify-jwt` y la clave `CLAVE_ADMIN` como secreto. Tu co-admin se registra solito desde `login.html`.
-4. 🔑 Edita `js/config.js` con tu **Project URL** y tu **anon public key**.
-5. 🚀 Publica y a jugar (Render, GitHub Pages o Vercel — lo que tengas a mano).
+5. 🔑 Edita `js/config.js` con tu **Project URL** y tu **anon public key**.
+6. 🚀 Publica y a jugar (Render, GitHub Pages o Vercel — lo que tengas a mano).
 
 > ⚠️ **Aviso de vestuario:** la clave `CLAVE_ADMIN` por defecto es `020308`. Cámbiala antes del primer partido oficial.
 
@@ -56,18 +57,19 @@ torneo-sena/
 - 📊 **Resumen** — conteo de equipos, jugadores y partidos de un vistazo.
 - 🛡️ **Equipos** — registra nombres y escudos (el álbum se llena aquí).
 - 👤 **Jugadores** — posición, número de camiseta y foto.
-- 📋 **Partidos** — resultados, goleadores y arbitraje por jugador.
+- 📋 **Partidos** — resultados, goleadores, arbitraje por jugador y cuotas de participación.
 - 🏆 **Eliminatoria** — arma el cuadro de 4/8/16/32 y el ganador avanza solo.
 - 📈 **Estadísticas** — goles y asistencias partido a partido.
+- 💰 **Recaudo** — control de cartera: total recaudado, deudas por equipo y bolsa del premio.
 - 📜 **Reglamento** — escribe las reglas en Markdown con vista previa.
 - 📸 **Galería** — sube fotos y videos de cada fecha.
-- ⚙️ **Configuración** — nombre del torneo, clasificados y nota de clasificación.
+- ⚙️ **Configuración** — nombre del torneo, clasificados, nota y cuotas de tesorería.
 
 ---
 
 ### 🕹️ 6. Trucos de Vestuario (FAQ)
 - ❓ **¿Empate en la eliminatoria?** No hay penaltis aquí: nadie avanza. Define un ganador.
-- ❓ **¿Por qué no veo la tabla?** La tabla solo cuenta partidos marcados como **jugado** en la fase Todos contra Todos.
+- ❓ **¿Por qué no veo la tabla?** La tabla solo cuenta partidos marcados como **jugado** o con estado **FINALIZADO** en la fase Todos contra Todos.
 - ❓ **¿El escudo no carga?** Revisa que el bucket `media` sea público y que la vista `tabla_posiciones` incluya `escudo_url` (está en `sql/schema.sql`).
 - ❓ **¿Revocar a un admin?** `delete from administradores where email = '...';` — pierde acceso al instante. Sin dramas.
 - ❓ **¿Videos pesados?** El plan gratis acepta hasta **50 MB** por archivo. Comprime antes de subir.

@@ -41,6 +41,7 @@ function activarTab(nombre) {
   if (nombre === 'fixture') renderFixture();
   if (nombre === 'eliminatoria') renderEliminatoria();
   if (nombre === 'estadisticas') renderEstadisticas();
+  if (nombre === 'finanzas') renderFinanzas();
   if (nombre === 'reglas') cargarReglas();
   if (nombre === 'galeria') renderGaleriaAdmin();
   if (nombre === 'config') cargarConfig();
@@ -392,6 +393,10 @@ function resetFormPartido() {
   $('par-jugado').checked = false;
   goleadoresSel = [];
   arbitrajeEstado = {};
+  $('par-pago-local').checked = false;
+  $('par-pago-visitante').checked = false;
+  $('par-arbitraje-pagado').checked = false;
+  actualizarEtiquetasCuotas();
   actualizarMarcador();
   actualizarGoleadores();
   renderArbitraje();
@@ -438,16 +443,26 @@ async function guardarGoleadores(partidoId, lista = goleadoresSel) {
   }
 }
 
+// Guarda el estado de pago del arbitraje. El respaldo principal es
+// partidos.pago_local / pago_visitante / arbitraje_pagado (siempre
+// disponibles y guardados junto al partido); el detalle por jugador
+// de arbitraje_partidos se sincroniza si la tabla existe, pero sus
+// errores JAMÁS bloquean el guardado del partido.
 async function guardarArbitraje(partidoId) {
   const jugadores = jugadoresDelPartido();
   if (!jugadores.length) return;
-  const filas = jugadores.map(j => ({
-    partido_id: partidoId,
-    jugador_id: j.id,
-    pagado: !!arbitrajeEstado[j.id]
-  }));
-  const { error } = await supabase.from('arbitraje_partidos').upsert(filas, { onConflict: 'partido_id,jugador_id' });
-  if (error) { toast('Error al guardar arbitraje: ' + error.message, 'error'); return; }
+  try {
+    const filas = jugadores.map(j => ({
+      partido_id: partidoId,
+      jugador_id: j.id,
+      pagado: !!arbitrajeEstado[j.id]
+    }));
+    const { error } = await supabase.from('arbitraje_partidos').upsert(filas, { onConflict: 'partido_id,jugador_id' });
+    if (error) toast('Aviso: detalle de arbitraje no sincronizado: ' + error.message, 'info');
+  } catch {
+    // La tabla arbitraje_partidos puede no existir o tener RLS
+    // cerrada: el pago ya quedó guardado en partidos, no es fatal.
+  }
 }
 
 async function renderPartidos() {
@@ -512,6 +527,10 @@ async function editarPartido(id) {
   $('par-goles-visitante').value = p.goles_visitante ?? 0;
   await cargarGoleadores(p.id);
   await cargarArbitraje(p.id);
+  $('par-pago-local').checked = !!p.pago_local;
+  $('par-pago-visitante').checked = !!p.pago_visitante;
+  $('par-arbitraje-pagado').checked = !!p.arbitraje_pagado;
+  actualizarEtiquetasCuotas();
   actualizarMarcador();
   actualizarGoleadores();
   renderArbitraje();
@@ -541,7 +560,10 @@ $('form-partido').addEventListener('submit', async e => {
     goles_local: Number($('par-goles-local').value || 0),
     goles_visitante: Number($('par-goles-visitante').value || 0),
     estado,
-    jugado
+    jugado,
+    pago_local: $('par-pago-local').checked,
+    pago_visitante: $('par-pago-visitante').checked,
+    arbitraje_pagado: $('par-arbitraje-pagado').checked
   };
   if (jugado) {
     const gl = datos.goles_local, gv = datos.goles_visitante;
@@ -1405,6 +1427,9 @@ async function cargarConfig() {
   $('cfg-nombre').value = state.config.torneo_nombre || '';
   $('cfg-clasificados').value = state.config.num_clasificados || '8';
   $('cfg-nota').value = state.config.nota_clasificacion || '';
+  $('cfg-cuota-partido').value = state.config.cuota_partido || '8000';
+  $('cfg-cuota-jugador').value = state.config.cuota_jugador || '2000';
+  $('cfg-bolsa-premio').value = state.config.bolsa_premio_pct || '100';
 }
 
 $('form-config').addEventListener('submit', async e => {
@@ -1412,7 +1437,10 @@ $('form-config').addEventListener('submit', async e => {
   const valores = {
     torneo_nombre: $('cfg-nombre').value.trim(),
     num_clasificados: $('cfg-clasificados').value,
-    nota_clasificacion: $('cfg-nota').value.trim()
+    nota_clasificacion: $('cfg-nota').value.trim(),
+    cuota_partido: String(Number($('cfg-cuota-partido').value || 0)),
+    cuota_jugador: String(Number($('cfg-cuota-jugador').value || 0)),
+    bolsa_premio_pct: String(Number($('cfg-bolsa-premio').value || 0))
   };
   let error = null;
   for (const [clave, valor] of Object.entries(valores)) {
@@ -1421,5 +1449,138 @@ $('form-config').addEventListener('submit', async e => {
   }
   if (error) { toast('Error: ' + error.message, 'error'); return; }
   toast('Configuración guardada');
-  state.config = valores;
+  state.config = { ...state.config, ...valores };
+  actualizarEtiquetasCuotas();
 });
+
+// ============================================================
+// FINANZAS: RECAUDO Y CARTERA (panel de tesorería)
+// Cada participación de equipo en un partido genera una cuota
+// (pago_local / pago_visitante). El total recaudado es la suma de
+// cuotas pagadas; la cartera es lo que falta por cobrar.
+// ============================================================
+const fmtDinero = n => new Intl.NumberFormat('es-CO', {
+  style: 'currency', currency: 'COP', maximumFractionDigits: 0
+}).format(n || 0);
+
+function parametrosFinancieros() {
+  return {
+    cuotaPartido: Number(state.config.cuota_partido || 8000),
+    cuotaJugador: Number(state.config.cuota_jugador || 2000),
+    premioPct: Number(state.config.bolsa_premio_pct || 100)
+  };
+}
+
+// Etiquetas del formulario de partido: "$8.000 / $2.000 por jugador"
+function actualizarEtiquetasCuotas() {
+  const { cuotaPartido, cuotaJugador } = parametrosFinancieros();
+  const lbl = ` ($${Number(cuotaPartido).toLocaleString('es-CO')} / $${Number(cuotaJugador).toLocaleString('es-CO')} por jugador)`;
+  const l = $('lbl-pago-local');
+  const v = $('lbl-pago-visitante');
+  if (l) l.textContent = `Equipo local pagó cuota${lbl}`;
+  if (v) v.textContent = `Equipo visitante pagó cuota${lbl}`;
+}
+
+async function renderFinanzas() {
+  await cargarBase();
+  actualizarEtiquetasCuotas();
+  const { cuotaPartido, premioPct } = parametrosFinancieros();
+  const partidos = state.partidos.filter(p => p.equipo_local_id && p.equipo_visitante_id);
+
+  // Recorrido por equipo: cada partido suma una participación por lado
+  const porEquipo = {};
+  let pagadas = 0;
+  partidos.forEach(p => {
+    const pLocal = !!p.pago_local;
+    const pVisitante = !!p.pago_visitante;
+    if (pLocal) pagadas++;
+    if (pVisitante) pagadas++;
+    [[p.equipo_local_id, pLocal], [p.equipo_visitante_id, pVisitante]].forEach(([eid, pagado]) => {
+      if (!porEquipo[eid]) porEquipo[eid] = [];
+      porEquipo[eid].push({ ...p, pagado });
+    });
+  });
+
+  const totalParticipaciones = partidos.length * 2;
+  const recaudado = pagadas * cuotaPartido;
+  const pendiente = (totalParticipaciones - pagadas) * cuotaPartido;
+  const bolsa = Math.round(recaudado * premioPct / 100);
+
+  $('finanzas-resumen').innerHTML = `
+    <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4">
+      <p class="text-xs text-slate-500 uppercase tracking-wider mb-1">Total recaudado</p>
+      <p class="text-2xl font-black text-emerald-400 truncate">${fmtDinero(recaudado)}</p>
+      <p class="text-[11px] text-slate-500 mt-1">${pagadas} cuota(s) pagada(s) de ${totalParticipaciones}</p>
+    </div>
+    <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4">
+      <p class="text-xs text-slate-500 uppercase tracking-wider mb-1">Total pendiente / deudas</p>
+      <p class="text-2xl font-black text-rose-400 truncate">${fmtDinero(pendiente)}</p>
+      <p class="text-[11px] text-slate-500 mt-1">${totalParticipaciones - pagadas} cuota(s) por cobrar</p>
+    </div>
+    <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4">
+      <p class="text-xs text-slate-500 uppercase tracking-wider mb-1">🏆 Bolsa del premio final</p>
+      <p class="text-2xl font-black text-gold truncate">${fmtDinero(bolsa)}</p>
+      <p class="text-[11px] text-slate-500 mt-1">${premioPct}% del recaudado</p>
+    </div>`;
+
+  const nombreDe = id => state.equipos.find(e => e.id === id)?.nombre ?? 'Equipo';
+  $('finanzas-tabla').innerHTML = state.equipos.map(e => {
+    const participaciones = porEquipo[e.id] || [];
+    const pagados = participaciones.filter(p => p.pagado).length;
+    const faltan = participaciones.length - pagados;
+    const debe = faltan * cuotaPartido;
+    const badge = participaciones.length === 0
+      ? '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-slate-700 text-slate-500">Sin partidos</span>'
+      : faltan === 0
+        ? '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">✓ Al día</span>'
+        : `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-rose-500/40 bg-rose-500/15 text-rose-400">Debe ${fmtDinero(debe)}</span>`;
+    const desglose = participaciones.length
+      ? `<button type="button" data-desglose="${e.id}" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700 text-slate-300 hover:bg-slate-800 transition">Ver detalle</button>`
+      : '<span class="text-slate-600 text-xs">—</span>';
+    return `
+      <tr class="border-b border-slate-800/60" data-equipo="${e.id}">
+        <td class="px-3 py-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            ${escudo(e, 'w-8 h-8')}
+            <span class="font-semibold truncate">${esc(e.nombre)}</span>
+          </div>
+        </td>
+        <td class="px-3 py-3 text-center text-emerald-400 font-bold">${pagados}</td>
+        <td class="px-3 py-3 text-center ${faltan ? 'text-rose-400 font-bold' : 'text-slate-500'}">${faltan}</td>
+        <td class="px-3 py-3 text-center">${badge}</td>
+        <td class="px-3 py-3 text-right">${desglose}</td>
+      </tr>
+      <tr class="hidden" data-desglose-fila="${e.id}">
+        <td colspan="5" class="px-3 py-0">
+          <div class="rounded-lg border border-slate-700/60 bg-slate-950/60 p-3 mb-3 space-y-1.5"></div>
+        </td>
+      </tr>`;
+  }).join('') || '<tr><td colspan="5" class="px-3 py-8 text-center text-slate-500">Registra equipos para ver la cartera.</td></tr>';
+
+  state.equipos.forEach(e => {
+    const participaciones = porEquipo[e.id] || [];
+    const fila = document.querySelector(`[data-desglose-fila="${e.id}"]`);
+    if (!fila) return;
+    const detalle = participaciones.map(p => {
+      const rivalId = p.equipo_local_id === e.id ? p.equipo_visitante_id : p.equipo_local_id;
+      const chip = p.pagado
+        ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">Pagado</span>'
+        : `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border border-rose-500/40 bg-rose-500/15 text-rose-400">Debe ${fmtDinero(cuotaPartido)}</span>`;
+      return `
+        <div class="flex flex-wrap items-center gap-2 text-xs">
+          <span class="text-slate-400 shrink-0">${p.jornada ? esc(p.jornada) : esc(ETIQUETAS_FASE[p.fase] ?? p.fase)}</span>
+          <span class="text-slate-600">·</span>
+          <span class="min-w-0 truncate">${esc(nombreDe(e.id))} vs ${esc(nombreDe(rivalId))}</span>
+          <span class="text-slate-600">·</span>
+          <span class="text-slate-500 shrink-0">${fechaHoraLocal(p.fecha)}</span>
+          ${chip}
+        </div>`;
+    }).join('');
+    fila.querySelector('div').innerHTML = detalle || '<p class="text-xs text-slate-600">Sin partidos registrados.</p>';
+  });
+
+  $('finanzas-tabla').querySelectorAll('[data-desglose]').forEach(btn => btn.addEventListener('click', () => {
+    const fila = document.querySelector(`[data-desglose-fila="${btn.dataset.desglose}"]`);
+    if (fila) fila.classList.toggle('hidden');
+  }));
+}

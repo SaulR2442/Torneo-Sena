@@ -71,6 +71,9 @@ create table if not exists public.partidos (
   sede text,
   jornada text,
   estado text default 'PENDIENTE',
+  pago_local boolean default false,
+  pago_visitante boolean default false,
+  arbitraje_pagado boolean default false,
   creado_en timestamptz default now()
 );
 
@@ -139,7 +142,10 @@ insert into public.config (clave, valor) values
   ('torneo_nombre', 'Torneo SENA'),
   ('num_grupos', '1'),
   ('num_clasificados', '8'),
-  ('nota_clasificacion', 'Clasifican los mejores equipos de la tabla general a la fase eliminatoria')
+  ('nota_clasificacion', 'Clasifican los mejores equipos de la tabla general a la fase eliminatoria'),
+  ('cuota_partido', '8000'),
+  ('cuota_jugador', '2000'),
+  ('bolsa_premio_pct', '100')
 on conflict (clave) do nothing;
 
 -- ============================================================
@@ -224,8 +230,11 @@ create policy "admin config" on public.config for all to authenticated using (pu
 -- ============================================================
 -- VISTAS PÚBLICAS (cálculo automático de estadísticas)
 -- ============================================================
--- Tabla de posiciones: solo cuenta partidos JUGADOS de la fase
+-- Tabla de posiciones: solo cuenta partidos FINALIZADOS de la fase
 -- "grupos" (la eliminatoria no suma puntos en la tabla general).
+-- Un partido cuenta si jugado = true O estado = 'FINALIZADO', para
+-- cubrir filas antiguas o guardadas solo por estado.
+-- Puntos: victoria +3, empate +1, derrota +0.
 -- Incluye escudo_url para que la vista pública muestre los escudos.
 create or replace view public.tabla_posiciones
 as
@@ -235,15 +244,17 @@ with resumen as (
     e.nombre,
     e.escudo_url,
     e.grupo,
-    count(m.id) filter (where m.jugado) as pj,
-    count(m.id) filter (where m.jugado and m.goles_local > m.goles_visitante) as pg,
-    count(m.id) filter (where m.jugado and m.goles_local = m.goles_visitante) as pe,
-    count(m.id) filter (where m.jugado and m.goles_local < m.goles_visitante) as pp,
-    coalesce(sum(m.goles_local)  filter (where m.jugado), 0) as gf,
-    coalesce(sum(m.goles_visitante) filter (where m.jugado), 0) as gc
+    count(m.id) filter (where m.jugado or m.estado = 'FINALIZADO') as pj,
+    count(m.id) filter (where (m.jugado or m.estado = 'FINALIZADO') and m.goles_local > m.goles_visitante) as pg,
+    count(m.id) filter (where (m.jugado or m.estado = 'FINALIZADO') and m.goles_local = m.goles_visitante) as pe,
+    count(m.id) filter (where (m.jugado or m.estado = 'FINALIZADO') and m.goles_local < m.goles_visitante) as pp,
+    coalesce(sum(m.goles_local)  filter (where m.jugado or m.estado = 'FINALIZADO'), 0) as gf,
+    coalesce(sum(m.goles_visitante) filter (where m.jugado or m.estado = 'FINALIZADO'), 0) as gc
   from public.equipos e
   left join public.partidos m
-    on m.jugado and m.fase = 'grupos' and (m.equipo_local_id = e.id or m.equipo_visitante_id = e.id)
+    on (m.jugado or m.estado = 'FINALIZADO')
+       and m.fase = 'grupos'
+       and (m.equipo_local_id = e.id or m.equipo_visitante_id = e.id)
   group by e.id
 )
 select
@@ -254,8 +265,9 @@ select
   (gf - gc) as dg
 from resumen;
 
--- Ranking de jugadores: solo suma estadísticas de partidos JUGADOS
--- (evita que resultados guardados en partidos sin jugar inflen el ranking).
+-- Ranking de jugadores: solo suma estadísticas de partidos FINALIZADOS
+-- (jugado = true o estado = 'FINALIZADO'), para que resultados
+-- guardados en partidos sin jugar no inflen el ranking.
 create or replace view public.ranking_jugadores
 as
 select
@@ -270,7 +282,7 @@ from public.jugadores j
 join public.equipos e on e.id = j.equipo_id
 left join public.estadisticas s
   on s.jugador_id = j.id
-  and exists (select 1 from public.partidos m where m.id = s.partido_id and m.jugado)
+  and exists (select 1 from public.partidos m where m.id = s.partido_id and (m.jugado or m.estado = 'FINALIZADO'))
 group by j.id, j.nombre, j.numero, e.nombre, e.id;
 
 grant select on public.tabla_posiciones, public.ranking_jugadores to anon, authenticated;
