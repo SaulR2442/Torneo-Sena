@@ -19,20 +19,56 @@ const $ = id => document.getElementById(id);
 const partidoTerminado = p => !!p.jugado || p.estado === 'FINALIZADO';
 
 // Re-consulta la base y re-renderiza las secciones vivas. Se ejecuta al
-// cargar la página, al volver a la pestaña y periódicamente, para que los
-// cambios guardados desde el panel admin se reflejen de inmediato.
+// cargar la página, al volver a la pestaña, periódicamente y en tiempo
+// real (postgres_changes), para que los cambios guardados desde el
+// panel admin se reflejen de inmediato sin recargar la página.
+let refrescando = false;
 async function refrescarDatosVivos() {
-  const [respPartidos, respStats, respJugadores] = await Promise.all([
-    supabase.from('partidos').select('*').order('fecha', { ascending: true }),
-    supabase.from('estadisticas').select('*'),
-    supabase.from('jugadores').select('*')
-  ]);
-  cachePartidos = respPartidos.data || [];
-  cacheEstadisticas = respStats.data || [];
-  cacheJugadores = respJugadores.data || [];
-  pintarPosiciones();
-  pintarEstadisticas();
-  pintarPartidos();
+  if (refrescando) return;
+  refrescando = true;
+  try {
+    const [respPartidos, respStats, respJugadores] = await Promise.all([
+      supabase.from('partidos').select('*').order('fecha', { ascending: true }),
+      supabase.from('estadisticas').select('*'),
+      supabase.from('jugadores').select('*')
+    ]);
+    cachePartidos = respPartidos.data || [];
+    cacheEstadisticas = respStats.data || [];
+    cacheJugadores = respJugadores.data || [];
+    pintarPosiciones();
+    pintarEstadisticas();
+    pintarPartidos();
+    pintarEliminatoria();
+  } finally {
+    refrescando = false;
+  }
+}
+
+// Agrupa los avisos de Realtime (un insert masivo de fixture dispara
+// varias filas) en un solo refresco rápido.
+let refrescoPendiente = false;
+function solicitarRefresco() {
+  if (refrescoPendiente) return;
+  refrescoPendiente = true;
+  setTimeout(() => {
+    refrescoPendiente = false;
+    refrescarDatosVivos();
+  }, 300);
+}
+
+// Suscripción en tiempo real: partidos y estadísticas publicados
+// (publicación "supabase_realtime" configurada en sql/automatizacion.sql).
+// Si el proyecto no la tiene, el refresco periódico lo cubre todo.
+function suscribirRealtime() {
+  try {
+    supabase
+      .channel('cambios-torneo')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'partidos' }, solicitarRefresco)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'estadisticas' }, solicitarRefresco)
+      .subscribe();
+  } catch {
+    // Realtime no disponible: silencioso, el intervalo cubre la sincronización.
+  }
 }
 
 async function init() {
@@ -55,9 +91,9 @@ async function init() {
 
   pintarSesion();
   await refrescarDatosVivos();
-  pintarEliminatoria();
   pintarGaleria();
   pintarReglas();
+  suscribirRealtime();
 
   // Refresco automático: al volver a la pestaña o enfocar la ventana y
   // cada 45 segundos en segundo plano para tener el sitio siempre al día.
@@ -186,7 +222,16 @@ function pintarPosiciones() {
       <td class="px-2 py-3 text-center ${f.dg > 0 ? 'text-emerald-400' : f.dg < 0 ? 'text-rose-400' : ''}">${f.dg > 0 ? '+' : ''}${f.dg}</td>
       <td class="px-4 py-3 text-center font-black text-emerald-400">${f.puntos}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="10" class="px-3 py-8 text-center text-slate-500">Aún no hay equipos registrados.</td></tr>';
+  }).join('') || `
+    <tr>
+      <td colspan="10" class="px-3 py-10">
+        <div class="empty-estado">
+          <span class="empty-icono">🛡️</span>
+          <p class="empty-titulo">Aún no hay equipos registrados</p>
+          <p class="empty-sub">La tabla de posiciones se calcula automáticamente con los partidos finalizados.</p>
+        </div>
+      </td>
+    </tr>`;
 }
 
 $('tbody-posiciones').addEventListener('click', e => {
@@ -222,31 +267,80 @@ function calcularRanking() {
 
 function pintarEstadisticas() {
   const jugadores = calcularRanking();
-  const top = (lista, campo, n = 5, icono = '') => {
-    const orden = [...lista].sort((a, b) => b[campo] - a[campo]).slice(0, n);
-    if (!orden.length) return '<li class="text-slate-600 text-xs">Sin datos aún</li>';
-    return orden.map((j, i) => `
-      <li class="flex items-center justify-between gap-2">
-        <span class="flex items-center gap-2 min-w-0">
-          <span class="text-slate-600 font-bold w-4 shrink-0">${i + 1}</span>
-          <span class="truncate">${esc(j.jugador)}</span>
-          <span class="text-[10px] text-slate-500 truncate">${esc(j.equipo)}</span>
-        </span>
-        <span class="font-black text-emerald-400 shrink-0">${j[campo]}</span>
-      </li>`).join('');
-  };
-  $('top-goleadores').innerHTML = top(jugadores, 'goles');
-  $('top-asistencias').innerHTML = top(jugadores, 'asistencias');
+  const porGoles = jugadores.filter(j => j.goles > 0)
+    .sort((a, b) => b.goles - a.goles || b.asistencias - a.asistencias || a.jugador.localeCompare(b.jugador));
+  const porAsistencias = jugadores.filter(j => j.asistencias > 0)
+    .sort((a, b) => b.asistencias - a.asistencias || b.goles - a.goles || a.jugador.localeCompare(b.jugador));
+  const totalGoles = jugadores.reduce((a, j) => a + j.goles, 0);
+  const totalAsistencias = jugadores.reduce((a, j) => a + j.asistencias, 0);
 
-  $('totales-torneo').innerHTML = `
+  const fila = (j, i, campo, color) => `
+    <li class="flex items-center justify-between gap-2">
+      <span class="flex items-center gap-2 min-w-0">
+        <span class="text-slate-600 font-bold w-4 shrink-0">${i + 1}</span>
+        <span class="truncate">${esc(j.jugador)}</span>
+        <span class="text-[10px] text-slate-500 truncate">${esc(j.equipo)}</span>
+      </span>
+      <span class="font-black ${color} shrink-0">${j[campo]}</span>
+    </li>`;
+
+  // Tarjeta de ranking: TOP 5 visible + botón "Ver lista completa 🔻"
+  // que expande suavemente el resto de jugadores con registro.
+  const card = (lista, campo, color, icono, textoVacio) => {
+    const vacio = `
+      <div class="empty-estado">
+        <span class="empty-icono">${icono}</span>
+        <p class="empty-titulo">${textoVacio}</p>
+        <p class="empty-sub">Se publicarán automáticamente al guardar un partido.</p>
+      </div>`;
+    if (!lista.length) return vacio;
+    const top = lista.slice(0, 5).map((j, i) => fila(j, i, campo, color)).join('');
+    const extras = lista.slice(5);
+    return `
+      <ol class="space-y-2 text-sm">${top}</ol>
+      ${extras.length ? `
+        <div class="top-expandible" id="expandible-${campo}">
+          <div class="top-expandible-inner">
+            <ol class="space-y-2 text-sm pt-3 border-t border-slate-800/60">${extras.map((j, i) => fila(j, i + 5, campo, color)).join('')}</ol>
+          </div>
+        </div>
+        <button type="button" data-expandir="${campo}" aria-expanded="false" class="btn-ver-todos">Ver lista completa 🔻</button>` : ''}`;
+  };
+
+  $('top-goleadores').innerHTML = card(porGoles, 'goles', 'text-emerald-400', '⚽', 'Aún no hay goles registrados');
+  $('top-asistencias').innerHTML = card(porAsistencias, 'asistencias', 'text-sky-400', '🎯', 'Aún no hay asistencias registradas');
+
+  $('top-goleadores').querySelectorAll('[data-expandir]').forEach(b => b.addEventListener('click', () => alternarListaCompleta(b, 'goles')));
+  $('top-asistencias').querySelectorAll('[data-expandir]').forEach(b => b.addEventListener('click', () => alternarListaCompleta(b, 'asistencias')));
+
+  // Contadores del torneo en tiempo real (sumados automáticamente).
+  $('totales-torneo').innerHTML = (totalGoles || totalAsistencias)
+    ? `
     <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-center">
-      <p class="text-3xl font-black text-emerald-400">${jugadores.reduce((a, j) => a + j.goles, 0)}</p>
-      <p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Goles totales del torneo</p>
+      <p class="text-3xl font-black text-emerald-400">${totalGoles}</p>
+      <p class="text-slate-500 text-xs uppercase tracking-wider mt-1">⚽ Goles totales del torneo</p>
     </div>
     <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-center">
-      <p class="text-3xl font-black text-sky-400">${jugadores.reduce((a, j) => a + j.asistencias, 0)}</p>
-      <p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Asistencias totales del torneo</p>
+      <p class="text-3xl font-black text-sky-400">${totalAsistencias}</p>
+      <p class="text-slate-500 text-xs uppercase tracking-wider mt-1">🎯 Asistencias totales del torneo</p>
+    </div>`
+    : `
+    <div class="col-span-full rounded-xl bg-slate-900/60 border border-slate-800">
+      <div class="empty-estado">
+        <span class="empty-icono">⚽</span>
+        <p class="empty-titulo">Aún no hay goles registrados</p>
+        <p class="empty-sub">Los totales del torneo se suman solos con cada partido guardado desde el panel.</p>
+      </div>
     </div>`;
+}
+
+function alternarListaCompleta(btn, campo) {
+  const caja = $(`expandible-${campo}`);
+  if (!caja) return;
+  const abierta = caja.classList.toggle('abierta');
+  btn.textContent = abierta ? 'Ver menos 🔺' : 'Ver lista completa 🔻';
+  btn.setAttribute('aria-expanded', String(abierta));
+  if (abierta) btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // ============ PARTIDOS / FIXTURE ============
@@ -324,7 +418,12 @@ function pintarGridFechas() {
     ? gruposFixture
     : gruposFixture.filter(g => g.clave === fechaPartidosActiva);
   if (!visibles.length) {
-    caja.innerHTML = '<p class="text-slate-600 text-sm">Aún no hay partidos publicados.</p>';
+    caja.innerHTML = `
+      <div class="empty-estado rounded-xl border border-slate-800 bg-slate-900/60">
+        <span class="empty-icono">📅</span>
+        <p class="empty-titulo">Aún no hay partidos publicados</p>
+        <p class="empty-sub">El fixture del torneo aparecerá aquí cuando el administrador lo publique.</p>
+      </div>`;
     return;
   }
   const porId = Object.fromEntries(equipos.map(e => [e.id, e]));
@@ -406,7 +505,14 @@ async function pintarGaleria() {
   ]);
   const items = respGaleria.data || [];
   if (!items.length) {
-    $('galeria-grid').innerHTML = '<p class="text-slate-600 text-sm col-span-full">Aún no hay contenido multimedia.</p>';
+    $('galeria-grid').innerHTML = `
+      <div class="col-span-full">
+        <div class="empty-estado rounded-xl border border-slate-800 bg-slate-900/60">
+          <span class="empty-icono">📸</span>
+          <p class="empty-titulo">Aún no hay contenido multimedia</p>
+          <p class="empty-sub">Las fotos y videos del torneo se publicarán desde el panel de administración.</p>
+        </div>
+      </div>`;
     return;
   }
   const etiquetaPartido = {};

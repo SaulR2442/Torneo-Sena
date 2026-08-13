@@ -259,6 +259,7 @@ $('jug-equipo').addEventListener('change', renderJugadores);
 // PARTIDOS
 // ============================================================
 let goleadoresSel = [];
+let asistenciasSel = [];
 let arbitrajeEstado = {};
 
 const equipoNombre = id => state.equipos.find(e => e.id === id)?.nombre ?? '';
@@ -405,6 +406,53 @@ function actualizarGoleadores() {
   renderListaGoleadores();
 }
 
+function renderListaAsistidores() {
+  const porJugador = Object.fromEntries(state.jugadores.map(j => [j.id, j]));
+  const ul = $('lista-asistidores');
+  if (!asistenciasSel.length) {
+    ul.innerHTML = '<li class="text-slate-500 text-xs">Sin asistentes registrados.</li>';
+    return;
+  }
+  ul.innerHTML = asistenciasSel.map((a, i) => {
+    const j = porJugador[a.jugador_id];
+    return `
+      <li class="flex items-center gap-2">
+        <span class="text-sky-400 font-black">🎯</span>
+        <span class="font-semibold">${esc(j?.nombre ?? '?')}</span>
+        <span class="text-slate-500 text-xs truncate">${esc(equipoNombre(j?.equipo_id))}</span>
+        <span class="ml-auto font-black text-sm text-sky-400">${a.n} asistencia${a.n !== 1 ? 's' : ''}</span>
+        <button type="button" data-quitar-asistencia="${i}" class="text-xs px-2 py-1 rounded bg-rose-600/10 text-rose-400 hover:bg-rose-600/20">Quitar</button>
+      </li>`;
+  }).join('');
+  ul.querySelectorAll('[data-quitar-asistencia]').forEach(b => b.addEventListener('click', () => {
+    asistenciasSel.splice(Number(b.dataset.quitarAsistencia), 1);
+    renderListaAsistidores();
+  }));
+}
+
+function actualizarAsistidores() {
+  const jugadores = jugadoresDelPartido();
+  $('asis-jugador').innerHTML = jugadores.length
+    ? `<option value="">Elige jugador…</option>` + jugadores
+        .map(j => {
+          const a = asistenciasSel.find(x => x.jugador_id === j.id);
+          const ya = a ? ` · lleva ${a.n} asistencia${a.n !== 1 ? 's' : ''}` : '';
+          return `<option value="${j.id}">${j.nombre} (${equipoNombre(j.equipo_id)})${ya}</option>`;
+        })
+        .join('')
+    : '<option value="">Selecciona los equipos primero</option>';
+  renderListaAsistidores();
+}
+
+$('btn-agregar-asistencia').addEventListener('click', () => {
+  const jid = $('asis-jugador').value;
+  if (!jid) { toast('Selecciona un jugador', 'error'); return; }
+  const idx = asistenciasSel.findIndex(a => a.jugador_id === jid);
+  if (idx >= 0) asistenciasSel[idx].n++;
+  else asistenciasSel.push({ jugador_id: jid, n: 1 });
+  actualizarAsistidores();
+});
+
 function renderArbitraje() {
   const caja = $('lista-arbitraje');
   const jugadores = jugadoresDelPartido();
@@ -482,12 +530,14 @@ $('par-arbitraje-pagado').addEventListener('change', () => {
 
 function equiposCambiados() {
   goleadoresSel = [];
+  asistenciasSel = [];
   arbitrajeEstado = {};
   $('par-pago-local').checked = false;
   $('par-pago-visitante').checked = false;
   $('par-arbitraje-pagado').checked = false;
   actualizarMarcador();
   actualizarGoleadores();
+  actualizarAsistidores();
   renderArbitraje();
 }
 
@@ -501,6 +551,7 @@ function resetFormPartido() {
   $('par-sede').value = 'SENA';
   $('par-jugado').checked = false;
   goleadoresSel = [];
+  asistenciasSel = [];
   arbitrajeEstado = {};
   $('par-pago-local').checked = false;
   $('par-pago-visitante').checked = false;
@@ -508,22 +559,26 @@ function resetFormPartido() {
   actualizarEtiquetasCuotas();
   actualizarMarcador();
   actualizarGoleadores();
+  actualizarAsistidores();
   renderArbitraje();
   $('btn-cancelar-partido').classList.add('hidden');
 }
 
-async function cargarGoleadores(partidoId) {
+async function cargarEstadisticasPartido(partidoId) {
   goleadoresSel = [];
+  asistenciasSel = [];
   if (!partidoId) return;
   const { data } = await supabase.from('estadisticas')
-    .select('jugador_id, goles, autogoles')
-    .eq('partido_id', partidoId)
-    .or('goles.gt.0,autogoles.gt.0');
-  goleadoresSel = (data || []).map(r => ({
-    jugador_id: r.jugador_id,
-    goles: r.goles || 0,
-    autogoles: r.autogoles || 0
-  }));
+    .select('jugador_id, goles, autogoles, asistencias')
+    .eq('partido_id', partidoId);
+  (data || []).forEach(r => {
+    if ((r.goles || 0) > 0 || (r.autogoles || 0) > 0) {
+      goleadoresSel.push({ jugador_id: r.jugador_id, goles: r.goles || 0, autogoles: r.autogoles || 0 });
+    }
+    if ((r.asistencias || 0) > 0) {
+      asistenciasSel.push({ jugador_id: r.jugador_id, n: r.asistencias });
+    }
+  });
 }
 
 async function cargarArbitraje(partidoId) {
@@ -533,31 +588,67 @@ async function cargarArbitraje(partidoId) {
   (data || []).forEach(r => { arbitrajeEstado[r.jugador_id] = r.pagado; });
 }
 
-async function guardarGoleadores(partidoId, lista = goleadoresSel) {
+// Guarda en una sola pasada las estadísticas del partido (goles,
+// autogoles y asistencias) leyendo SOLO las listas de la ficha del
+// encuentro: no hay ingreso manual por duplicado. Si el partido no
+// está jugado, las listas se pasan vacías y se limpian los contadores.
+async function guardarEstadisticas(partidoId, jugado) {
   const idsEquipos = [$('par-local').value, $('par-visitante').value].filter(Boolean);
   if (!idsEquipos.length) return;
-  const filas = lista.map(g => {
+  const goleadores = jugado ? goleadoresSel : [];
+  const asistencias = jugado ? asistenciasSel : [];
+  const filas = [];
+  goleadores.forEach(g => {
     const jugador = state.jugadores.find(j => j.id === g.jugador_id);
-    return {
+    if (!jugador) return;
+    filas.push({
       partido_id: partidoId,
       jugador_id: g.jugador_id,
-      equipo_id: jugador?.equipo_id,
+      equipo_id: jugador.equipo_id,
       goles: g.goles || 0,
-      autogoles: g.autogoles || 0
-    };
-  }).filter(f => f.equipo_id);
-  const { error } = await supabase.from('estadisticas').upsert(filas, { onConflict: 'partido_id,jugador_id' });
-  if (error) { toast('Error al guardar goleadores: ' + error.message, 'error'); return; }
-  const { data: existentes } = await supabase.from('estadisticas').select('jugador_id, goles, autogoles, equipo_id').eq('partido_id', partidoId);
-  const quitar = (existentes || []).filter(r =>
-    ((r.goles || 0) > 0 || (r.autogoles || 0) > 0) &&
-    !lista.some(g => g.jugador_id === r.jugador_id)
-  );
-  if (quitar.length) {
-    await supabase.from('estadisticas').update({ goles: 0, autogoles: 0 })
-      .eq('partido_id', partidoId)
-      .in('jugador_id', quitar.map(r => r.jugador_id));
+      autogoles: g.autogoles || 0,
+      asistencias: 0
+    });
+  });
+  asistencias.forEach(a => {
+    const jugador = state.jugadores.find(j => j.id === a.jugador_id);
+    if (!jugador) return;
+    const fila = filas.find(f => f.jugador_id === a.jugador_id);
+    if (fila) fila.asistencias += a.n;
+    else filas.push({
+      partido_id: partidoId,
+      jugador_id: a.jugador_id,
+      equipo_id: jugador.equipo_id,
+      goles: 0,
+      autogoles: 0,
+      asistencias: a.n
+    });
+  });
+  if (filas.length) {
+    const { error } = await supabase.from('estadisticas').upsert(filas, { onConflict: 'partido_id,jugador_id' });
+    if (error) { toast('Error al guardar estadísticas: ' + error.message, 'error'); return; }
   }
+  // Limpieza: jugadores que ya no están en las listas vuelven a 0
+  const { data: existentes } = await supabase.from('estadisticas')
+    .select('jugador_id, goles, autogoles, asistencias')
+    .eq('partido_id', partidoId);
+  const enGoles = new Set(goleadores.map(g => g.jugador_id));
+  const enAsistencias = new Set(asistencias.map(a => a.jugador_id));
+  const limpiezas = [];
+  (existentes || []).forEach(r => {
+    const parche = {};
+    if (((r.goles || 0) > 0 || (r.autogoles || 0) > 0) && !enGoles.has(r.jugador_id)) {
+      parche.goles = 0;
+      parche.autogoles = 0;
+    }
+    if ((r.asistencias || 0) > 0 && !enAsistencias.has(r.jugador_id)) {
+      parche.asistencias = 0;
+    }
+    if (Object.keys(parche).length) {
+      limpiezas.push(supabase.from('estadisticas').update(parche).eq('partido_id', partidoId).eq('jugador_id', r.jugador_id));
+    }
+  });
+  if (limpiezas.length) await Promise.all(limpiezas);
 }
 
 // Guarda el estado de pago del arbitraje. El respaldo principal es
@@ -655,7 +746,7 @@ async function editarPartido(id) {
   $('par-visitante').value = p.equipo_visitante_id || '';
   $('par-goles-local').value = p.goles_local ?? 0;
   $('par-goles-visitante').value = p.goles_visitante ?? 0;
-  await cargarGoleadores(p.id);
+  await cargarEstadisticasPartido(p.id);
   await cargarArbitraje(p.id);
   $('par-pago-local').checked = !!p.pago_local;
   $('par-pago-visitante').checked = !!p.pago_visitante;
@@ -663,12 +754,14 @@ async function editarPartido(id) {
   actualizarEtiquetasCuotas();
   actualizarMarcador();
   actualizarGoleadores();
+  actualizarAsistidores();
   renderArbitraje();
   $('btn-cancelar-partido').classList.remove('hidden');
 }
 
 $('form-partido').addEventListener('submit', async e => {
   e.preventDefault();
+  const btnGuardar = $('btn-guardar-partido');
   const id = $('par-id').value || null;
   const estado = $('par-estado').value;
   const jugado = estado === 'FINALIZADO';
@@ -677,6 +770,21 @@ $('form-partido').addEventListener('submit', async e => {
   if (localId && localId === visitanteId) {
     toast('Un equipo no puede jugar contra sí mismo', 'error');
     return;
+  }
+  // Control anti-duplicados: un mismo partido (equipos + fase + jornada)
+  // no se puede registrar dos veces para evitar doble puntuación.
+  if (!id) {
+    const { data: duplicado } = await supabase.from('partidos')
+      .select('id')
+      .eq('fase', $('par-fase').value)
+      .eq('equipo_local_id', localId)
+      .eq('equipo_visitante_id', visitanteId)
+      .eq('jornada', $('par-jornada').value.trim() || null)
+      .maybeSingle();
+    if (duplicado) {
+      toast('Este partido ya está registrado. Búscalo en la lista y edítalo allí.', 'error');
+      return;
+    }
   }
   const fechaVal = $('par-fecha').value;
   const horaVal = $('par-hora').value;
@@ -701,22 +809,36 @@ $('form-partido').addEventListener('submit', async e => {
   } else {
     datos.ganador_id = null;
   }
-  let partidoId = id;
-  if (id) {
-    const { error } = await supabase.from('partidos').update(datos).eq('id', id);
-    if (error) { toast('Error al guardar partido: ' + error.message, 'error'); return; }
-  } else {
-    const { data, error } = await supabase.from('partidos').insert(datos).select().single();
-    if (error) { toast('Error al guardar partido: ' + error.message, 'error'); return; }
-    partidoId = data.id;
+  // Evita el doble envío accidental (doble clic = doble partido)
+  btnGuardar.disabled = true;
+  try {
+    let partidoId = id;
+    if (id) {
+      const { error } = await supabase.from('partidos').update(datos).eq('id', id);
+      if (error) {
+        toast('Error al guardar partido: ' + error.message, 'error');
+        return;
+      }
+    } else {
+      const { data, error } = await supabase.from('partidos').insert(datos).select().single();
+      if (error) {
+        if (error.code === '23505') toast('Este partido ya está registrado (mismos equipos y jornada).', 'error');
+        else toast('Error al guardar partido: ' + error.message, 'error');
+        return;
+      }
+      partidoId = data.id;
+    }
+    // Las estadísticas (goles y asistencias) se calculan solas desde la
+    // ficha del encuentro; si se desmarcó "jugado" se limpian para no
+    // inflar el ranking.
+    await guardarEstadisticas(partidoId, jugado);
+    await guardarArbitraje(partidoId);
+    toast(id ? 'Partido actualizado' : 'Partido registrado');
+    resetFormPartido();
+    renderPartidos();
+  } finally {
+    btnGuardar.disabled = false;
   }
-  // Los goles individuales solo aplican a partidos jugados; si se
-  // desmarcó "jugado", se limpian para no inflar el ranking.
-  await guardarGoleadores(partidoId, jugado ? goleadoresSel : []);
-  await guardarArbitraje(partidoId);
-  toast(id ? 'Partido actualizado' : 'Partido registrado');
-  resetFormPartido();
-  renderPartidos();
 });
 
 $('btn-cancelar-partido').addEventListener('click', resetFormPartido);
@@ -1367,95 +1489,75 @@ async function actualizarTercerLugar() {
 }
 
 // ============================================================
-// ESTADISTICAS POR PARTIDO
+// ESTADISTICAS AUTOMATICAS DEL TORNEO
+// Ranking calculado en el cliente con la MISMA lógica de la vista
+// pública: suma goles y asistencias registrados en la ficha de cada
+// partido FINALIZADO (jugado o estado 'FINALIZADO'). Los autogoles
+// viven en su columna y nunca suman al jugador. No hay ingreso
+// manual: los datos vienen del formulario de partidos.
 // ============================================================
+const partidoTerminado = p => !!p.jugado || p.estado === 'FINALIZADO';
+
 async function renderEstadisticas() {
   await cargarBase();
-  const porId = Object.fromEntries(state.equipos.map(e => [e.id, e]));
-  const seleccion = $('est-partido').value;
-  $('est-partido').innerHTML = `<option value="">Selecciona un partido…</option>` + state.partidos
-    .filter(p => p.jugado)
-    .map(p => `<option value="${p.id}">${esc(porId[p.equipo_local_id]?.nombre ?? '?')} ${p.goles_local}-${p.goles_visitante} ${esc(porId[p.equipo_visitante_id]?.nombre ?? '?')} · ${ETIQUETAS_FASE[p.fase] ?? p.fase}</option>`)
-    .join('');
-  if (seleccion && state.partidos.some(p => p.id === seleccion)) $('est-partido').value = seleccion;
-  cargarEstadisticasPartido();
+  const { data: stats } = await supabase.from('estadisticas').select('*');
+  const terminados = new Set(state.partidos.filter(partidoTerminado).map(p => p.id));
+  const porJugador = {};
+  (stats || []).forEach(s => {
+    if (!terminados.has(s.partido_id)) return;
+    const fila = porJugador[s.jugador_id] ||= { goles: 0, asistencias: 0, autogoles: 0 };
+    fila.goles += s.goles || 0;
+    fila.asistencias += s.asistencias || 0;
+    fila.autogoles += s.autogoles || 0;
+  });
+  const infoJugador = Object.fromEntries(state.jugadores.map(j => [j.id, j]));
+  const infoEquipo = Object.fromEntries(state.equipos.map(e => [e.id, e]));
+  const ranking = Object.entries(porJugador).map(([jugadorId, f]) => {
+    const j = infoJugador[jugadorId];
+    return {
+      jugador: j?.nombre || 'Jugador',
+      numero: j?.numero,
+      equipo: (j && infoEquipo[j.equipo_id]?.nombre) || '',
+      goles: f.goles,
+      asistencias: f.asistencias,
+      autogoles: f.autogoles
+    };
+  }).filter(j => j.goles > 0 || j.asistencias > 0)
+    .sort((a, b) => b.goles - a.goles || b.asistencias - a.asistencias || a.jugador.localeCompare(b.jugador));
 
-  const { data: ranking } = await supabase.from('ranking_jugadores').select('*');
-  $('tabla-ranking').innerHTML = (ranking || []).filter(j => j.goles > 0 || j.asistencias > 0)
-    .sort((a, b) => b.goles - a.goles || b.asistencias - a.asistencias || a.jugador.localeCompare(b.jugador))
-    .map(j => `
+  const totalGoles = ranking.reduce((a, j) => a + j.goles, 0);
+  const totalAsistencias = ranking.reduce((a, j) => a + j.asistencias, 0);
+  $('est-totales').innerHTML = `
+    <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-center">
+      <p class="text-3xl font-black text-emerald-400">${totalGoles}</p>
+      <p class="text-slate-500 text-xs uppercase tracking-wider mt-1">⚽ Goles totales del torneo</p>
+    </div>
+    <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-center">
+      <p class="text-3xl font-black text-sky-400">${totalAsistencias}</p>
+      <p class="text-slate-500 text-xs uppercase tracking-wider mt-1">🎯 Asistencias totales del torneo</p>
+    </div>
+    <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-center">
+      <p class="text-3xl font-black text-gold">${ranking.length}</p>
+      <p class="text-slate-500 text-xs uppercase tracking-wider mt-1">Jugadores con registro</p>
+    </div>`;
+
+  $('tabla-ranking').innerHTML = ranking.map(j => `
       <tr class="border-b border-slate-800/50">
         <td class="px-3 py-2.5 font-semibold">${esc(j.jugador)} ${j.numero ? `<span class="text-slate-500 text-xs">#${j.numero}</span>` : ''}</td>
         <td class="px-3 py-2.5 text-slate-400">${esc(j.equipo)}</td>
         <td class="px-3 py-2.5 text-center font-bold text-emerald-400">${j.goles}</td>
         <td class="px-3 py-2.5 text-center">${j.asistencias}</td>
-      </tr>`).join('') || '<tr><td colspan="4" class="px-3 py-8 text-center text-slate-500">Sin estadísticas registradas aún.</td></tr>';
+      </tr>`).join('') || `
+      <tr>
+        <td colspan="4" class="px-3 py-10">
+          <div class="empty-estado">
+            <span class="empty-icono">⚽</span>
+            <p class="empty-titulo">Aún no hay goles ni asistencias registradas</p>
+            <p class="empty-sub">El ranking se llena automáticamente al guardar un partido con goleadores y asistidores.</p>
+          </div>
+        </td>
+      </tr>`;
 }
-
-$('est-partido').addEventListener('change', cargarEstadisticasPartido);
-
-async function cargarEstadisticasPartido() {
-  const partidoId = $('est-partido').value;
-  const cuerpo = $('est-cuerpo');
-  if (!partidoId) { cuerpo.innerHTML = '<p class="text-slate-500 text-sm mt-4">Selecciona un partido jugado.</p>'; return; }
-  const partido = state.partidos.find(p => p.id === partidoId);
-  const jugadoresEquipo = id => state.jugadores.filter(j => j.equipo_id === id);
-  const { data: existentes } = await supabase.from('estadisticas').select('*').eq('partido_id', partidoId);
-  const existente = {};
-  (existentes || []).forEach(e => { existente[e.jugador_id] = e; });
-
-  const tabla = (titulo, equipoId, lado) => {
-    const jugadores = jugadoresEquipo(equipoId);
-    if (!jugadores.length) return `<p class="text-slate-500 text-xs">${titulo}: sin jugadores registrados.</p>`;
-    return `
-      <div class="flex-1 min-w-[280px]">
-        <p class="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">${titulo}</p>
-        <table class="w-full text-xs">
-          <thead><tr class="text-slate-500 uppercase">
-            <th class="text-left py-1.5">Jugador</th>
-            <th class="text-center py-1.5 w-12">⚽</th>
-            <th class="text-center py-1.5 w-12">🎯</th>
-          </tr></thead>
-          <tbody>${jugadores.map(j => {
-            const e = existente[j.id];
-            return `<tr data-equipo="${equipoId}" data-jugador="${j.id}">
-              <td class="py-1 pr-2 truncate">${j.nombre}</td>
-              <td><input data-est="goles" type="number" min="0" value="${e?.goles ?? 0}" class="campo w-11 text-center !px-1 !py-1"></td>
-              <td><input data-est="asistencias" type="number" min="0" value="${e?.asistencias ?? 0}" class="campo w-11 text-center !px-1 !py-1"></td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table>
-      </div>`;
-  };
-  cuerpo.innerHTML = `
-    <div class="flex flex-col md:flex-row gap-6 mt-4">
-      ${tabla(partido.equipo_local_id ? (state.equipos.find(x => x.id === partido.equipo_local_id)?.nombre ?? 'Local') : 'Local', partido.equipo_local_id, 'L')}
-      ${tabla(partido.equipo_visitante_id ? (state.equipos.find(x => x.id === partido.equipo_visitante_id)?.nombre ?? 'Visitante') : 'Visitante', partido.equipo_visitante_id, 'V')}
-    </div>`;
-}
-
-$('btn-est-guardar').addEventListener('click', async () => {
-  const partidoId = $('est-partido').value;
-  if (!partidoId) { toast('Selecciona un partido', 'error'); return; }
-  const partido = state.partidos.find(p => p.id === partidoId);
-  const filas = [];
-  document.querySelectorAll('#est-cuerpo tr[data-jugador]').forEach(tr => {
-    const lee = campo => Number(tr.querySelector(`[data-est="${campo}"]`).value || 0);
-    const goles = lee('goles'), asistencias = lee('asistencias');
-    if (goles + asistencias > 0) {
-      filas.push({
-        partido_id: partidoId,
-        jugador_id: tr.dataset.jugador,
-        equipo_id: tr.dataset.equipo,
-        goles, asistencias
-      });
-    }
-  });
-  const { error } = await supabase.from('estadisticas').upsert(filas, { onConflict: 'partido_id,jugador_id' });
-  if (error) { toast('Error al guardar: ' + error.message, 'error'); return; }
-  toast('Estadísticas guardadas');
-  renderEstadisticas();
-});
 
 // ============================================================
 // REGLAS

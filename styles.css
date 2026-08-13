@@ -236,8 +236,9 @@ input:focus, select:focus, textarea:focus {
   word-wrap: break-word;
 }
 
-/* El reglamento público vive sobre un panel sólido */
-.reglas-md.max-w-4xl {
+/* El reglamento público vive sobre un panel sólido a todo el ancho
+   de la sección (misma medida que .var-banner y los encabezados) */
+.reglas-panel {
   background: #161b22;
   border: 1px solid #d4af37;
   border-radius: 1rem;
@@ -1431,4 +1432,69 @@ body {
 .text-\[9px\] { font-size: 9px; }
 @media (min-width: 640px) {
   .sm\:grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ============================================================
+   ESTADOS VACÍOS (placeholders con iconografía)
+   ============================================================ */
+.empty-estado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .3rem;
+  padding: 1.75rem 1rem;
+  text-align: center;
+}
+.empty-estado .empty-icono {
+  font-size: 1.7rem;
+  line-height: 1;
+}
+.empty-estado .empty-titulo {
+  font-size: .85rem;
+  font-weight: 700;
+  color: #94a3b8;
+}
+.empty-estado .empty-sub {
+  font-size: .72rem;
+  color: #64748b;
+  max-width: 21rem;
+}
+
+/* ============================================================
+   TOP 5 + "VER LISTA COMPLETA" (estadísticas públicas)
+   ============================================================ */
+.btn-ver-todos {
+  display: block;
+  width: 100%;
+  margin-top: .8rem;
+  padding: .5rem .75rem;
+  border: 1px dashed rgba(212, 175, 55, .45);
+  border-radius: .6rem;
+  color: #fbbf24;
+  background: transparent;
+  font-size: .7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.btn-ver-todos:hover {
+  background: rgba(212, 175, 55, .12);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, .7);
+}
+
+/* Expansión suave (grid-rows 0fr -> 1fr) de la lista completa */
+.top-expandible {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows .35s ease;
+}
+.top-expandible.abierta {
+  grid-template-rows: 1fr;
+}
+.top-expandible .top-expandible-inner {
+  overflow: hidden;
+  min-height: 0;
 }
