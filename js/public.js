@@ -166,40 +166,146 @@ async function pintarEstadisticas() {
     </div>`;
 }
 
-// ============ PARTIDOS ============
+// ============ PARTIDOS / FIXTURE ============
+let fechaPartidosActiva = 'TODAS';
+let gruposFixture = [];
+
 async function pintarPartidos() {
-  const { data } = await supabase.from('partidos').select('*').order('fecha', { ascending: false });
-  const porId = Object.fromEntries(equipos.map(e => [e.id, e]));
-  const tarjeta = p => {
-    const local = porId[p.equipo_local_id];
-    const visitante = porId[p.equipo_visitante_id];
-    let ganador = null;
-    if (p.jugado && local && visitante) {
-      if (p.goles_local > p.goles_visitante) ganador = 'L';
-      else if (p.goles_visitante > p.goles_local) ganador = 'V';
-    }
-    const fila = (equipo, goles, g) => `
-      <div class="flex items-center justify-between gap-2 py-1.5 ${g ? 'font-bold text-emerald-300' : ''}">
-        <span class="flex items-center gap-2 min-w-0">${escudo(equipo, 'w-6 h-6')}<span class="truncate">${esc(equipo?.nombre ?? 'Pendiente')}</span>${g ? ' ✓' : ''}</span>
-        <span class="font-black">${equipo ? (goles ?? 0) : ''}</span>
-      </div>`;
-    return `
-      <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
-        <div class="flex items-center justify-between text-[10px] uppercase tracking-wider text-slate-500 mb-1">
-          <span>${ETIQUETAS_FASE[p.fase] ?? p.fase}${p.jornada ? ` · ${esc(p.jornada)}` : ''}${p.grupo ? ` · Grupo ${p.grupo}` : ''}${p.estado === 'EN JUEGO' ? ' <span class="text-rose-400 font-black animate-pulse ml-1">● En vivo</span>' : ''}</span>
-          <span class="whitespace-nowrap">${fmtFechaHora(p.fecha)}</span>
-        </div>
-        <div class="grid grid-cols-2 gap-x-4">
-          <div>${fila(local, p.goles_local, ganador === 'L')}</div>
-          <div>${fila(visitante, p.goles_visitante, ganador === 'V')}</div>
-        </div>
-        ${p.sede ? `<p class="text-[11px] text-slate-500 mt-1">📍 ${p.sede}</p>` : ''}
-      </div>`;
+  const { data } = await supabase.from('partidos').select('*').order('fecha', { ascending: true });
+  gruposFixture = agruparPorFecha(data || []);
+  pintarTabsFechas();
+  pintarGridFechas();
+}
+
+// Agrupa los partidos por jornada ("Fecha 1", ...) y por fase cuando la
+// jornada no aplica (eliminatoria). Calcula además qué equipos de la fase
+// de grupos descansan en cada fecha (los que juegan en todas las demás).
+function agruparPorFecha(partidos) {
+  const ORDEN_FASE = ['grupos', 'dieciseisavos', 'octavos', 'cuartos', 'semifinal', 'tercer_lugar', 'final'];
+  const mapa = new Map();
+  partidos.forEach(p => {
+    // Los byes de la eliminatoria (equipo libre) no son enfrentamientos
+    if (!p.equipo_local_id || !p.equipo_visitante_id) return;
+    const clave = p.jornada || ETIQUETAS_FASE[p.fase] || 'Otros';
+    if (!mapa.has(clave)) mapa.set(clave, []);
+    mapa.get(clave).push(p);
+  });
+  const numeroDe = (clave, fase) => {
+    const m = /fecha\s*(\d+)/i.exec(clave);
+    if (m) return Number(m[1]);
+    const i = ORDEN_FASE.indexOf(fase);
+    return 1000 + (i >= 0 ? i : 999);
   };
-  const jugados = (data || []).filter(p => p.jugado);
-  const pendientes = (data || []).filter(p => !p.jugado);
-  $('lista-resultados').innerHTML = jugados.map(tarjeta).join('') || '<p class="text-slate-600 text-sm">Aún no hay resultados.</p>';
-  $('lista-proximos').innerHTML = pendientes.map(tarjeta).join('') || '<p class="text-slate-600 text-sm">No hay partidos programados.</p>';
+  // Equipos presentes en la fase de grupos (base para calcular descansos)
+  const equiposDeLiga = new Set(
+    partidos.filter(p => p.fase === 'grupos').flatMap(p => [p.equipo_local_id, p.equipo_visitante_id])
+  );
+  return [...mapa.entries()].map(([clave, lista]) => {
+    const esFecha = /fecha\s*\d+/i.test(clave);
+    const partidos = [...lista].sort((a, b) => {
+      const fa = a.fecha ? new Date(a.fecha).getTime() : Infinity;
+      const fb = b.fecha ? new Date(b.fecha).getTime() : Infinity;
+      return fa - fb;
+    });
+    const descansan = esFecha
+      ? [...equiposDeLiga].filter(id => !partidos.some(p => p.equipo_local_id === id || p.equipo_visitante_id === id))
+      : [];
+    return {
+      clave,
+      esFecha,
+      etiqueta: esFecha ? clave.toUpperCase() : (ETIQUETAS_FASE[lista[0].fase] ?? clave).toUpperCase(),
+      numero: numeroDe(clave, lista[0].fase),
+      partidos,
+      descansan
+    };
+  }).sort((a, b) => a.numero - b.numero);
+}
+
+function pintarTabsFechas() {
+  const tabs = $('tabs-fechas');
+  if (!gruposFixture.length) { tabs.innerHTML = ''; return; }
+  tabs.innerHTML = [null, ...gruposFixture.map(g => g.clave)].map(clave => {
+    const activa = fechaPartidosActiva === (clave ?? 'TODAS');
+    const etiqueta = clave ? gruposFixture.find(g => g.clave === clave).etiqueta : 'Todas las fechas';
+    return `<button type="button" data-fecha-tab="${esc(clave ?? 'TODAS')}" class="fixture-tab${activa ? ' activo' : ''}">${esc(etiqueta)}</button>`;
+  }).join('');
+  tabs.querySelectorAll('[data-fecha-tab]').forEach(btn => btn.addEventListener('click', () => {
+    fechaPartidosActiva = btn.dataset.fechaTab;
+    pintarTabsFechas();
+    pintarGridFechas();
+  }));
+}
+
+function pintarGridFechas() {
+  const caja = $('grid-fechas');
+  const visibles = fechaPartidosActiva === 'TODAS'
+    ? gruposFixture
+    : gruposFixture.filter(g => g.clave === fechaPartidosActiva);
+  if (!visibles.length) {
+    caja.innerHTML = '<p class="text-slate-600 text-sm">Aún no hay partidos publicados.</p>';
+    return;
+  }
+  const porId = Object.fromEntries(equipos.map(e => [e.id, e]));
+  caja.innerHTML = `<div class="fixture-grid">${visibles.map(g => tarjetaFecha(g, porId)).join('')}</div>`;
+}
+
+function tarjetaFecha(g, porId) {
+  const total = g.partidos.length;
+  const descansan = g.descansan.filter(id => porId[id]);
+  const info = `${total} partido${total === 1 ? '' : 's'}${descansan.length ? ` · ${descansan.length} descansa${descansan.length > 1 ? 'n' : ''}` : ''}`;
+  return `
+    <article class="fecha-card">
+      <header class="fecha-card-header">
+        <h3 class="fecha-titulo">📅 ${esc(g.etiqueta)}</h3>
+        <span class="fecha-badge">${esc(info)}</span>
+      </header>
+      <div class="fecha-cuerpo">
+        ${g.partidos.map(p => tarjetaPartido(p, porId)).join('')}
+        ${descansan.map(id => tarjetaDescansa(porId[id])).join('')}
+      </div>
+    </article>`;
+}
+
+function tarjetaPartido(p, porId) {
+  const local = porId[p.equipo_local_id];
+  const visitante = porId[p.equipo_visitante_id];
+  let ganador = null;
+  if (p.jugado && local && visitante) {
+    if (p.goles_local > p.goles_visitante) ganador = 'L';
+    else if (p.goles_visitante > p.goles_local) ganador = 'V';
+  }
+  const lateral = (equipo, lado, gana) => `
+    <div class="partido-equipo ${lado === 'L' ? 'partido-local' : 'partido-visitante'}">
+      ${escudo(equipo, 'w-7 h-7')}
+      <span class="partido-nombre ${gana ? 'partido-ganador' : ''}">${esc(equipo?.nombre ?? 'Pendiente')}</span>
+      ${gana ? '<span class="partido-cheque">✓</span>' : ''}
+    </div>`;
+  const centro = p.jugado
+    ? `<span class="partido-marcador${ganador ? ' partido-marcador-definido' : ''}">${p.goles_local} - ${p.goles_visitante}</span>`
+    : '<span class="partido-vs">VS</span>';
+  const vivo = p.estado === 'EN JUEGO' ? '<span class="partido-vivo">● En vivo</span>' : '';
+  return `
+    <div class="partido-fila">
+      <div class="partido-linea">
+        ${lateral(local, 'L', ganador === 'L')}
+        ${centro}
+        ${lateral(visitante, 'V', ganador === 'V')}
+      </div>
+      <div class="partido-meta">
+        <span>📍 ${esc(p.sede || 'SENA')}</span>
+        <span>${fmtFechaHora(p.fecha)}</span>
+        ${vivo}
+      </div>
+    </div>`;
+}
+
+function tarjetaDescansa(equipo) {
+  return `
+    <div class="descansa-fila">
+      ${escudo(equipo, 'w-7 h-7')}
+      <span class="descansa-nombre">${esc(equipo.nombre)}</span>
+      <span class="descansa-chip">Descansa</span>
+    </div>`;
 }
 
 // ============ ELIMINATORIA ============

@@ -1158,3 +1158,254 @@ body {
     padding: 0 !important;
   }
 }
+
+/* ============================================================
+   FIXTURE PÚBLICO "PARTIDOS" (vista espectador)
+   Tarjetas por jornada en grid responsivo + filtro por fecha
+   Paleta: #0b0d12 fondo, #161b22 paneles, dorado #d4af37
+   ============================================================ */
+
+/* --- Barra de filtros por fecha (tabs deslizables) --- */
+.fixture-tabs {
+  display: flex;
+  gap: .5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: .55rem;
+  margin-bottom: 1.5rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 175, 55, .45) rgba(255, 255, 255, .06);
+}
+.fixture-tabs::-webkit-scrollbar { height: 6px; }
+.fixture-tabs::-webkit-scrollbar-track { background: rgba(255, 255, 255, .05); border-radius: 999px; }
+.fixture-tabs::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, .45); border-radius: 999px; }
+
+.fixture-tab {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: .5rem .95rem;
+  border-radius: .6rem;
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #c3d0ee;
+  background: #131b30;
+  border: 1px solid #25324f;
+  cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s;
+}
+.fixture-tab:hover {
+  background: #1a2236;
+  color: #fff;
+}
+.fixture-tab.activo {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  border-color: #f59e0b;
+  box-shadow: 0 4px 14px rgba(217, 119, 6, .35);
+}
+
+/* --- Grid responsivo de fechas: 1 / 2 / 3 columnas --- */
+.fixture-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (min-width: 768px) {
+  .fixture-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1024px) {
+  .fixture-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* --- Tarjeta de fecha --- */
+.fecha-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: .9rem;
+  overflow: hidden;
+  border: 1px solid #25324f;
+  border-top: 2px solid #d4af37;
+  background: #161b22;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
+}
+
+.fecha-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .6rem;
+  flex-wrap: wrap;
+  padding: .8rem 1rem;
+  background: linear-gradient(180deg, #1c222b, #161b22);
+  border-bottom: 1px solid rgba(212, 175, 55, .25);
+}
+
+.fecha-titulo {
+  font-size: .82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #fbbf24;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  min-width: 0;
+}
+
+.fecha-badge {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #fbbf24;
+  background: rgba(212, 175, 55, .12);
+  border: 1px solid rgba(212, 175, 55, .40);
+  border-radius: 999px;
+  padding: .2rem .65rem;
+  white-space: nowrap;
+}
+
+.fecha-cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  padding: .8rem;
+}
+
+/* --- Fila de partido (local · marcador/VS · visitante) --- */
+.partido-fila {
+  border: 1px solid #25324f;
+  border-radius: .6rem;
+  background: rgba(11, 16, 31, .60);
+  padding: .55rem .7rem;
+  transition: border-color .2s;
+}
+.partido-fila:hover { border-color: rgba(212, 175, 55, .35); }
+
+.partido-linea {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.partido-equipo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+.partido-local { justify-content: flex-end; }
+.partido-visitante { justify-content: flex-start; }
+
+.partido-nombre {
+  font-size: .78rem;
+  font-weight: 600;
+  color: #c3d0ee;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.partido-ganador {
+  color: #fbbf24;
+  font-weight: 800;
+}
+.partido-cheque {
+  flex-shrink: 0;
+  color: #f59e0b;
+  font-size: .7rem;
+  font-weight: 900;
+}
+
+/* Badge central: VS (pendiente) */
+.partido-vs {
+  flex-shrink: 0;
+  padding: .25rem .7rem;
+  border-radius: .55rem;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+  color: #fbbf24;
+  background: rgba(212, 175, 55, .10);
+  border: 1px solid rgba(212, 175, 55, .50);
+  white-space: nowrap;
+}
+
+/* Badge central: marcador (finalizado) */
+.partido-marcador {
+  flex-shrink: 0;
+  padding: .3rem .7rem;
+  border-radius: .55rem;
+  font-size: .9rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #c3d0ee;
+  background: #0b101f;
+  border: 1px solid #25324f;
+  white-space: nowrap;
+}
+.partido-marcador-definido {
+  color: #fbbf24;
+  border-color: rgba(212, 175, 55, .50);
+  background: rgba(212, 175, 55, .08);
+}
+
+/* --- Meta inferior del partido (sede, fecha, en vivo) --- */
+.partido-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem .7rem;
+  margin-top: .45rem;
+  padding-top: .45rem;
+  border-top: 1px dashed rgba(255, 255, 255, .08);
+  font-size: 11px;
+  color: #8ea1cc;
+}
+
+.partido-vivo {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #f87171;
+  animation: pulso-en-vivo 1.4s ease-in-out infinite;
+}
+@keyframes pulso-en-vivo {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
+
+/* --- Tarjeta especial de equipo que descansa (tono mate) --- */
+.descansa-fila {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .6rem .7rem;
+  border-radius: .6rem;
+  border: 1px dashed rgba(139, 152, 180, .35);
+  background: rgba(37, 50, 79, .28);
+}
+.descansa-nombre {
+  font-size: .78rem;
+  font-weight: 600;
+  font-style: italic;
+  color: #8ea1cc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Tamaño de escudo del fixture público (w-7/h-7 no existen en el
+   tailwind.css compilado; se agregan como respaldo manual) */
+.w-7 { width: 1.75rem; }
+.h-7 { height: 1.75rem; }
