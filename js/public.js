@@ -255,56 +255,82 @@ function calcularRanking() {
   const infoEquipo = Object.fromEntries(equipos.map(e => [e.id, e]));
   return Object.entries(porJugador).map(([jugadorId, f]) => {
     const j = infoJugador[jugadorId];
+    const eq = j ? infoEquipo[j.equipo_id] : null;
     return {
+      jugador_id: jugadorId,
       jugador: j?.nombre || 'Jugador',
-      equipo: (j && infoEquipo[j.equipo_id]?.nombre) || '',
+      numero: j?.numero ?? null,
+      foto_url: j?.foto_url || '',
+      equipo: eq?.nombre || '',
+      escudo_url: eq?.escudo_url || '',
       goles: f.goles
     };
   }).filter(j => j.goles > 0);
 }
 
+// Tarjeta individual estilo EA Sports FC: foto con anillo dorado,
+// posición, nombre en mayúsculas, escudo del equipo y contador de
+// goles grande. La posición #1 (líder) recibe la variante destacada.
+function tarjetaGoleador(j, i) {
+  const lider = i === 0;
+  const pos = i + 1;
+  const foto = j.foto_url
+    ? `<img class="goleador-foto" src="${esc(urlPublico(j.foto_url))}" alt="${esc(j.jugador)}" loading="lazy">`
+    : `<span class="goleador-foto goleador-foto-iniciales">${esc(iniciales(j.jugador))}</span>`;
+  const escudoEq = j.escudo_url
+    ? `<img class="goleador-escudo" src="${esc(urlPublico(j.escudo_url))}" alt="${esc(j.equipo)}" loading="lazy">`
+    : `<span class="goleador-escudo goleador-escudo-iniciales">${esc(iniciales(j.equipo || '?'))}</span>`;
+  return `
+    <article class="goleador-card${lider ? ' lider' : ''}">
+      ${lider ? '<span class="goleador-lider-chip">👑 Líder</span>' : ''}
+      <span class="goleador-pos">${pos}º</span>
+      <div class="goleador-foto-wrap">${foto}</div>
+      <div class="goleador-info">
+        <p class="goleador-nombre">${esc(j.jugador)}${j.numero ? ` <span class="goleador-camiseta">#${j.numero}</span>` : ''}</p>
+        <div class="goleador-equipo">
+          ${escudoEq}
+          <span class="goleador-equipo-nombre">${esc(j.equipo)}</span>
+        </div>
+      </div>
+      <div class="goleador-goles">
+        <span class="goleador-goles-num">${j.goles}</span>
+        <span class="goleador-goles-label">Goles</span>
+      </div>
+    </article>`;
+}
+
 function pintarEstadisticas() {
-  const jugadores = calcularRanking();
-  const porGoles = jugadores
+  const jugadores = calcularRanking()
     .sort((a, b) => b.goles - a.goles || a.jugador.localeCompare(b.jugador));
   const totalGoles = jugadores.reduce((a, j) => a + j.goles, 0);
 
-  const fila = (j, i, campo, color) => `
-    <li class="flex items-center justify-between gap-2">
-      <span class="flex items-center gap-2 min-w-0">
-        <span class="text-slate-600 font-bold w-4 shrink-0">${i + 1}</span>
-        <span class="truncate">${esc(j.jugador)}</span>
-        <span class="text-[10px] text-slate-500 truncate">${esc(j.equipo)}</span>
-      </span>
-      <span class="font-black ${color} shrink-0">${j[campo]}</span>
-    </li>`;
-
-  // Tarjeta de ranking: TOP 5 visible + botón "Ver lista completa 🔻"
-  // que expande suavemente el resto de jugadores con registro.
-  const card = (lista, campo, color, icono, textoVacio) => {
-    const vacio = `
+  if (!jugadores.length) {
+    $('top-goleadores').innerHTML = `
       <div class="empty-estado">
-        <span class="empty-icono">${icono}</span>
-        <p class="empty-titulo">${textoVacio}</p>
+        <span class="empty-icono">⚽</span>
+        <p class="empty-titulo">Aún no hay goles registrados</p>
         <p class="empty-sub">Se publicarán automáticamente al guardar un partido.</p>
       </div>`;
-    if (!lista.length) return vacio;
-    const top = lista.slice(0, 5).map((j, i) => fila(j, i, campo, color)).join('');
-    const extras = lista.slice(5);
-    return `
-      <ol class="space-y-2 text-sm">${top}</ol>
+  } else {
+    // TOP 6 en tarjetas + botón "Ver lista completa 🔻" que expande
+    // suavemente el resto de jugadores con registro.
+    const top = jugadores.slice(0, 6);
+    const extras = jugadores.slice(6);
+    $('top-goleadores').innerHTML = `
+      <div class="goleadores-grid">
+        ${top.map((j, i) => tarjetaGoleador(j, i)).join('')}
+      </div>
       ${extras.length ? `
-        <div class="top-expandible" id="expandible-${campo}">
+        <div class="top-expandible" id="expandible-goles">
           <div class="top-expandible-inner">
-            <ol class="space-y-2 text-sm pt-3 border-t border-slate-800/60">${extras.map((j, i) => fila(j, i + 5, campo, color)).join('')}</ol>
+            <div class="goleadores-grid goleadores-grid-extra">
+              ${extras.map((j, i) => tarjetaGoleador(j, i + 6)).join('')}
+            </div>
           </div>
         </div>
-        <button type="button" data-expandir="${campo}" aria-expanded="false" class="btn-ver-todos">Ver lista completa 🔻</button>` : ''}`;
-  };
-
-  $('top-goleadores').innerHTML = card(porGoles, 'goles', 'text-emerald-400', '⚽', 'Aún no hay goles registrados');
-
-  $('top-goleadores').querySelectorAll('[data-expandir]').forEach(b => b.addEventListener('click', () => alternarListaCompleta(b, 'goles')));
+        <button type="button" data-expandir="goles" aria-expanded="false" class="btn-ver-todos">Ver lista completa 🔻</button>` : ''}`;
+    $('top-goleadores').querySelectorAll('[data-expandir]').forEach(b => b.addEventListener('click', () => alternarListaCompleta(b, 'goles')));
+  }
 
   // Contador del torneo en tiempo real (sumado automáticamente).
   $('totales-torneo').innerHTML = totalGoles
