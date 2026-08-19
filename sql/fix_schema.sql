@@ -5,10 +5,13 @@
 -- (Es idempotente: puede re-ejecutarse sin errores).
 --
 -- ¿Por qué fallaba el guardado de partidos?
--- La aplicación envía al guardar un partido las columnas
--- "autogoles" y "asistencias" (y el flag "es_autogol"); si esas
+-- La aplicación enviaba al guardar un partido las columnas
+-- "autogoles", "asistencias" y el flag "es_autogol"; si esas
 -- columnas no existen en la tabla estadisticas, Supabase responde
 -- con el error de columna y el partido no se guarda.
+--
+-- ADEMÁS: el módulo de asistencias se eliminó del proyecto, así que
+-- este script también retira la columna "asistencias" de la tabla.
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -19,10 +22,11 @@ ALTER TABLE estadisticas
 ADD COLUMN IF NOT EXISTS es_autogol BOOLEAN DEFAULT FALSE;
 
 -- ------------------------------------------------------------
--- 2. Asegurar que exista la columna de asistencias
+-- 2. Eliminar la columna de asistencias (módulo eliminado)
+--    Los datos históricos de asistencias se descartan.
 -- ------------------------------------------------------------
 ALTER TABLE estadisticas
-ADD COLUMN IF NOT EXISTS asistencias INT DEFAULT 0;
+DROP COLUMN IF EXISTS asistencias;
 
 -- ------------------------------------------------------------
 -- 3. Refrescar el caché del esquema en PostgREST
@@ -46,7 +50,7 @@ NOTIFY pgrst, 'reload schema';
 
 -- ------------------------------------------------------------
 -- 5. VERIFICACIÓN (opcional): debe devolver una fila por cada
---    columna esperada: goles, autogoles, asistencias, es_autogol
+--    columna esperada: goles, autogoles, es_autogol
 -- ------------------------------------------------------------
 select column_name, data_type
 from information_schema.columns

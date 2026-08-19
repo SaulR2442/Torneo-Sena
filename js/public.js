@@ -240,17 +240,16 @@ $('tbody-posiciones').addEventListener('click', e => {
 });
 
 // ============ ESTADISTICAS ============
-// Ranking calculado en el cliente: suma goles/asistencias de los
-// partidos FINALIZADOS (jugado o estado FINALIZADO). Los autogoles
-// se guardan aparte (columna autogoles) y nunca suman al jugador.
+// Ranking calculado en el cliente: suma goles de los partidos
+// FINALIZADOS (jugado o estado FINALIZADO). Los autogoles se guardan
+// aparte (columna autogoles) y nunca suman al jugador.
 function calcularRanking() {
   const terminados = new Set(cachePartidos.filter(partidoTerminado).map(p => p.id));
   const porJugador = {};
   cacheEstadisticas.forEach(s => {
     if (!terminados.has(s.partido_id)) return;
-    const fila = porJugador[s.jugador_id] ||= { goles: 0, asistencias: 0 };
+    const fila = porJugador[s.jugador_id] ||= { goles: 0 };
     fila.goles += s.goles || 0;
-    fila.asistencias += s.asistencias || 0;
   });
   const infoJugador = Object.fromEntries(cacheJugadores.map(j => [j.id, j]));
   const infoEquipo = Object.fromEntries(equipos.map(e => [e.id, e]));
@@ -259,20 +258,16 @@ function calcularRanking() {
     return {
       jugador: j?.nombre || 'Jugador',
       equipo: (j && infoEquipo[j.equipo_id]?.nombre) || '',
-      goles: f.goles,
-      asistencias: f.asistencias
+      goles: f.goles
     };
-  }).filter(j => j.goles > 0 || j.asistencias > 0);
+  }).filter(j => j.goles > 0);
 }
 
 function pintarEstadisticas() {
   const jugadores = calcularRanking();
-  const porGoles = jugadores.filter(j => j.goles > 0)
-    .sort((a, b) => b.goles - a.goles || b.asistencias - a.asistencias || a.jugador.localeCompare(b.jugador));
-  const porAsistencias = jugadores.filter(j => j.asistencias > 0)
-    .sort((a, b) => b.asistencias - a.asistencias || b.goles - a.goles || a.jugador.localeCompare(b.jugador));
+  const porGoles = jugadores
+    .sort((a, b) => b.goles - a.goles || a.jugador.localeCompare(b.jugador));
   const totalGoles = jugadores.reduce((a, j) => a + j.goles, 0);
-  const totalAsistencias = jugadores.reduce((a, j) => a + j.asistencias, 0);
 
   const fila = (j, i, campo, color) => `
     <li class="flex items-center justify-between gap-2">
@@ -308,21 +303,15 @@ function pintarEstadisticas() {
   };
 
   $('top-goleadores').innerHTML = card(porGoles, 'goles', 'text-emerald-400', '⚽', 'Aún no hay goles registrados');
-  $('top-asistencias').innerHTML = card(porAsistencias, 'asistencias', 'text-sky-400', '🎯', 'Aún no hay asistencias registradas');
 
   $('top-goleadores').querySelectorAll('[data-expandir]').forEach(b => b.addEventListener('click', () => alternarListaCompleta(b, 'goles')));
-  $('top-asistencias').querySelectorAll('[data-expandir]').forEach(b => b.addEventListener('click', () => alternarListaCompleta(b, 'asistencias')));
 
-  // Contadores del torneo en tiempo real (sumados automáticamente).
-  $('totales-torneo').innerHTML = (totalGoles || totalAsistencias)
+  // Contador del torneo en tiempo real (sumado automáticamente).
+  $('totales-torneo').innerHTML = totalGoles
     ? `
     <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-center">
       <p class="text-3xl font-black text-emerald-400">${totalGoles}</p>
       <p class="text-slate-500 text-xs uppercase tracking-wider mt-1">⚽ Goles totales del torneo</p>
-    </div>
-    <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-center">
-      <p class="text-3xl font-black text-sky-400">${totalAsistencias}</p>
-      <p class="text-slate-500 text-xs uppercase tracking-wider mt-1">🎯 Asistencias totales del torneo</p>
     </div>`
     : `
     <div class="col-span-full rounded-xl bg-slate-900/60 border border-slate-800">

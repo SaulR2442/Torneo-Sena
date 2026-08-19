@@ -25,7 +25,6 @@ select
   e.nombre as equipo,
   e.id as equipo_id,
   coalesce(sum(s.goles), 0) as goles,
-  coalesce(sum(s.asistencias), 0) as asistencias,
   coalesce(sum(s.autogoles), 0) as autogoles
 from public.jugadores j
 join public.equipos e on e.id = j.equipo_id

@@ -93,7 +93,6 @@ create table if not exists public.estadisticas (
   equipo_id uuid not null references public.equipos(id) on delete cascade,
   goles integer default 0,
   autogoles integer default 0,
-  asistencias integer default 0,
   unique (partido_id, jugador_id)
 );
 
@@ -282,7 +281,6 @@ select
   e.nombre as equipo,
   e.id as equipo_id,
   coalesce(sum(s.goles), 0) as goles,
-  coalesce(sum(s.asistencias), 0) as asistencias,
   coalesce(sum(s.autogoles), 0) as autogoles
 from public.jugadores j
 join public.equipos e on e.id = j.equipo_id

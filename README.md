@@ -59,7 +59,7 @@ torneo-sena/
 - 👤 **Jugadores** — posición, número de camiseta y foto.
 - 📋 **Partidos** — resultados, goleadores, arbitraje por jugador y cuotas de participación.
 - 🏆 **Eliminatoria** — arma el cuadro de 4/8/16/32 y el ganador avanza solo.
-- 📈 **Estadísticas** — goles y asistencias partido a partido.
+- 📈 **Estadísticas** — goleadores partido a partido.
 - 💰 **Recaudo** — control de cartera: total recaudado, deudas por equipo y bolsa del premio.
 - 📜 **Reglamento** — escribe las reglas en Markdown con vista previa.
 - 📸 **Galería** — sube fotos y videos de cada fecha.
