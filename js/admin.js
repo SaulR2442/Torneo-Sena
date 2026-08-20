@@ -1650,8 +1650,14 @@ $('form-galeria').addEventListener('submit', async e => {
 // ============================================================
 // FINANZAS: RECAUDO Y CARTERA (panel de tesorería)
 // Cada participación de equipo en un partido genera una cuota
-// (pago_local / pago_visitante). El total recaudado es la suma de
-// cuotas pagadas; la cartera es lo que falta por cobrar.
+// (cuota_partido, por defecto $8.000 = 4 jugadores × $2.000). El
+// detalle de quién pagó vive en "arbitraje_partidos" (pago individual
+// por jugador); el recaudo global es la suma de $cuota_jugador por
+// cada jugador con el arbitraje activo. La cuota de equipo
+// (pago_local / pago_visitante) es solo un resumen derivado de ese
+// detalle y NUNCA se suma aparte, para no duplicar el recaudo.
+// Si la tabla no existe, el pago se respalda en los booleanos de
+// "partidos".
 // NOTA: los parámetros vienen de la tabla "config" (se sembró con el
 // script sql/schema.sql); si la fila no existe se usan estos valores
 // por defecto para que el panel nunca se rompa.
@@ -1678,41 +1684,100 @@ function actualizarEtiquetasCuotas() {
   if (v) v.textContent = `Equipo visitante pagó cuota${lbl}`;
 }
 
+// Pago individual por jugador (tabla "arbitraje_partidos"). Devuelve
+// null si el detalle no está disponible (tabla ausente o RLS cerrada);
+// en ese caso el recaudo se respalda en los booleanos de "partidos".
+async function cargarPagosArbitraje() {
+  if (!(await arbitrajePartidosDisponible())) return null;
+  try {
+    const { data } = await supabase.from('arbitraje_partidos').select('partido_id, jugador_id, pagado');
+    return data || [];
+  } catch {
+    return null;
+  }
+}
+
+// Total recaudado: $cuota_jugador × cada jugador con el arbitraje
+// activo. La cuota global de equipo (pago_local / pago_visitante) es
+// un resumen derivado del detalle por jugador y NUNCA se suma aparte,
+// de modo que el total global refleja exactamente $2.000 por cada
+// checkbox de arbitraje marcado (sin duplicar la cuota del equipo).
+function calcularTotalRecaudado(porEquipo) {
+  const { cuotaJugador } = parametrosFinancieros();
+  let jugadoresPagados = 0;
+  Object.values(porEquipo).forEach(lados => {
+    lados.forEach(l => { jugadoresPagados += l.pagados; });
+  });
+  return jugadoresPagados * cuotaJugador;
+}
+
 async function renderFinanzas() {
   await cargarBase();
   actualizarEtiquetasCuotas();
-  const { cuotaPartido, premioPct } = parametrosFinancieros();
+  const { cuotaPartido, cuotaJugador, premioPct } = parametrosFinancieros();
   const partidos = state.partidos.filter(p => p.equipo_local_id && p.equipo_visitante_id);
+
+  // Detalle de pago por jugador: partido_id -> (jugador_id -> pagado)
+  const pagosDetalle = await cargarPagosArbitraje();
+  const pagosPorPartido = new Map();
+  (pagosDetalle || []).forEach(r => {
+    if (!pagosPorPartido.has(r.partido_id)) pagosPorPartido.set(r.partido_id, new Map());
+    pagosPorPartido.get(r.partido_id).set(r.jugador_id, !!r.pagado);
+  });
+
+  // Recuento de pago de un equipo en un partido ("participación").
+  // Cada jugador pagado abona $cuota_jugador a la cuota de equipo
+  // ($cuota_partido); lo que no quede cubierto sigue como deuda. Así
+  // un abono parcial (ej. 3 de 4 jugadores = $6.000) deja una deuda
+  // proporcional ($2.000) en lugar de la cuota completa.
+  const infoLado = (partido, equipoId) => {
+    const jugadores = state.jugadores.filter(j => j.equipo_id === equipoId);
+    const detalle = pagosPorPartido.get(partido.id);
+    let pagados;
+    if (detalle) {
+      pagados = jugadores.filter(j => detalle.get(j.id)).length;
+    } else {
+      // Sin detalle individual: el pago global cubre a todo el equipo
+      const global = partido.equipo_local_id === equipoId ? partido.pago_local : partido.pago_visitante;
+      pagados = global ? jugadores.length : 0;
+    }
+    const abonado = pagados * cuotaJugador;
+    return { partido, pagados, abonado, deuda: Math.max(0, cuotaPartido - abonado) };
+  };
 
   // Recorrido por equipo: cada partido suma una participación por lado
   const porEquipo = {};
-  let pagadas = 0;
   partidos.forEach(p => {
-    const pLocal = !!p.pago_local;
-    const pVisitante = !!p.pago_visitante;
-    if (pLocal) pagadas++;
-    if (pVisitante) pagadas++;
-    [[p.equipo_local_id, pLocal], [p.equipo_visitante_id, pVisitante]].forEach(([eid, pagado]) => {
-      if (!porEquipo[eid]) porEquipo[eid] = [];
-      porEquipo[eid].push({ ...p, pagado });
+    [p.equipo_local_id, p.equipo_visitante_id].forEach(eid => {
+      if (!eid) return;
+      (porEquipo[eid] ||= []).push(infoLado(p, eid));
     });
   });
 
-  const totalParticipaciones = partidos.length * 2;
-  const recaudado = pagadas * cuotaPartido;
-  const pendiente = (totalParticipaciones - pagadas) * cuotaPartido;
+  let totalParticipaciones = 0;
+  let jugadoresPagados = 0;
+  let participacionesConDeuda = 0;
+  Object.values(porEquipo).forEach(lados => {
+    lados.forEach(l => {
+      totalParticipaciones++;
+      jugadoresPagados += l.pagados;
+      if (l.deuda > 0) participacionesConDeuda++;
+    });
+  });
+  const recaudado = calcularTotalRecaudado(porEquipo);
+  const pendiente = Math.max(0, totalParticipaciones * cuotaPartido - recaudado);
   const bolsa = Math.round(recaudado * premioPct / 100);
 
   $('finanzas-resumen').innerHTML = `
     <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4">
       <p class="text-xs text-slate-500 uppercase tracking-wider mb-1">Total recaudado</p>
       <p class="text-2xl font-black text-emerald-400 truncate">${fmtDinero(recaudado)}</p>
-      <p class="text-[11px] text-slate-500 mt-1">${pagadas} cuota(s) pagada(s) de ${totalParticipaciones}</p>
+      <p class="text-[11px] text-slate-500 mt-1">${jugadoresPagados} jugador(es) pagado(s) · ${fmtDinero(cuotaJugador)} c/u</p>
     </div>
     <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4">
       <p class="text-xs text-slate-500 uppercase tracking-wider mb-1">Total pendiente / deudas</p>
       <p class="text-2xl font-black text-rose-400 truncate">${fmtDinero(pendiente)}</p>
-      <p class="text-[11px] text-slate-500 mt-1">${totalParticipaciones - pagadas} cuota(s) por cobrar</p>
+      <p class="text-[11px] text-slate-500 mt-1">${participacionesConDeuda} participación(es) por cobrar</p>
     </div>
     <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4">
       <p class="text-xs text-slate-500 uppercase tracking-wider mb-1">🏆 Bolsa del premio final</p>
@@ -1722,16 +1787,16 @@ async function renderFinanzas() {
 
   const nombreDe = id => state.equipos.find(e => e.id === id)?.nombre ?? 'Equipo';
   $('finanzas-tabla').innerHTML = state.equipos.map(e => {
-    const participaciones = porEquipo[e.id] || [];
-    const pagados = participaciones.filter(p => p.pagado).length;
-    const faltan = participaciones.length - pagados;
-    const debe = faltan * cuotaPartido;
-    const badge = participaciones.length === 0
+    const lados = porEquipo[e.id] || [];
+    const pagados = lados.filter(l => l.deuda === 0).length;
+    const pendientes = lados.filter(l => l.deuda > 0).length;
+    const deudaTotal = lados.reduce((a, l) => a + l.deuda, 0);
+    const badge = lados.length === 0
       ? '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-slate-700 text-slate-500">Sin partidos</span>'
-      : faltan === 0
+      : deudaTotal === 0
         ? '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">✓ Al día</span>'
-        : `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-rose-500/40 bg-rose-500/15 text-rose-400">Debe ${fmtDinero(debe)}</span>`;
-    const desglose = participaciones.length
+        : `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-rose-500/40 bg-rose-500/15 text-rose-400">Debe ${fmtDinero(deudaTotal)}</span>`;
+    const desglose = lados.length
       ? `<button type="button" data-desglose="${e.id}" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700 text-slate-300 hover:bg-slate-800 transition">Ver detalle</button>`
       : '<span class="text-slate-600 text-xs">—</span>';
     return `
@@ -1743,7 +1808,7 @@ async function renderFinanzas() {
           </div>
         </td>
         <td class="px-3 py-3 text-center text-emerald-400 font-bold">${pagados}</td>
-        <td class="px-3 py-3 text-center ${faltan ? 'text-rose-400 font-bold' : 'text-slate-500'}">${faltan}</td>
+        <td class="px-3 py-3 text-center ${pendientes ? 'text-rose-400 font-bold' : 'text-slate-500'}">${pendientes}</td>
         <td class="px-3 py-3 text-center">${badge}</td>
         <td class="px-3 py-3 text-right">${desglose}</td>
       </tr>
@@ -1755,14 +1820,17 @@ async function renderFinanzas() {
   }).join('') || '<tr><td colspan="5" class="px-3 py-8 text-center text-slate-500">Registra equipos para ver la cartera.</td></tr>';
 
   state.equipos.forEach(e => {
-    const participaciones = porEquipo[e.id] || [];
+    const lados = porEquipo[e.id] || [];
     const fila = document.querySelector(`[data-desglose-fila="${e.id}"]`);
     if (!fila) return;
-    const detalle = participaciones.map(p => {
+    const detalle = lados.map(l => {
+      const p = l.partido;
       const rivalId = p.equipo_local_id === e.id ? p.equipo_visitante_id : p.equipo_local_id;
-      const chip = p.pagado
-        ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">Pagado</span>'
-        : `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border border-rose-500/40 bg-rose-500/15 text-rose-400">Debe ${fmtDinero(cuotaPartido)}</span>`;
+      const chip = l.deuda === 0
+        ? `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">✓ Pagado · ${l.pagados} jugador(es) abonaron ${fmtDinero(l.abonado)}</span>`
+        : l.pagados === 0
+          ? `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border border-rose-500/40 bg-rose-500/15 text-rose-400">Sin pago · Debe ${fmtDinero(l.deuda)}</span>`
+          : `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border border-rose-500/40 bg-rose-500/15 text-rose-400">Parcial · ${l.pagados} jugador(es) abonaron ${fmtDinero(l.abonado)} · Debe ${fmtDinero(l.deuda)}</span>`;
       return `
         <div class="flex flex-wrap items-center gap-2 text-xs">
           <span class="text-slate-400 shrink-0">${p.jornada ? esc(p.jornada) : esc(ETIQUETAS_FASE[p.fase] ?? p.fase)}</span>
