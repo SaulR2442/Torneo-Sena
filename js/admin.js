@@ -640,28 +640,43 @@ async function arbitrajePartidosDisponible() {
   return soportaArbitrajePartidos;
 }
 
-// Guarda el estado de pago del arbitraje. El respaldo principal es
-// partidos.pago_local / pago_visitante / arbitraje_pagado (siempre
-// disponibles y guardados junto al partido); el detalle por jugador
-// de arbitraje_partidos se sincroniza si la tabla existe, pero sus
-// errores JAMÁS bloquean el guardado del partido.
+// Guarda el estado de pago del arbitraje por jugador. El respaldo
+// principal es partidos.pago_local / pago_visitante / arbitraje_pagado
+// (siempre disponibles y guardados junto al partido); el detalle por
+// jugador de arbitraje_partidos se sincroniza si la tabla existe.
+// Los jugadores DESMARCADOS se guardan siempre con pagado = false (o
+// se reinsertan sin pago) para que la BD nunca retenga pagos que ya no
+// existen en el formulario. Los errores no bloquean el guardado del
+// partido, pero se registran en consola para no fallar en silencio.
 async function guardarArbitraje(partidoId) {
   const jugadores = jugadoresDelPartido();
   if (!jugadores.length) return;
   if (!(await arbitrajePartidosDisponible())) return;
+  const filas = jugadores.map(j => ({
+    partido_id: partidoId,
+    jugador_id: j.id,
+    pagado: !!arbitrajeEstado[j.id]
+  }));
   try {
-    const filas = jugadores.map(j => ({
-      partido_id: partidoId,
-      jugador_id: j.id,
-      pagado: !!arbitrajeEstado[j.id]
-    }));
-    const { error } = await supabase.from('arbitraje_partidos').upsert(filas, { onConflict: 'partido_id,jugador_id' });
-    if (error) {
-      // El pago ya quedó guardado en partidos: no es fatal ni se avisa.
-    }
-  } catch {
-    // La tabla arbitraje_partidos puede no existir o tener RLS
-    // cerrada: el pago ya quedó guardado en partidos, no es fatal.
+    // Intento 1: upsert sobre (partido_id, jugador_id). Actualiza a
+    // false el pago de los jugadores desmarcados y crea el registro
+    // (con false) si el jugador aún no tiene uno.
+    const { error } = await supabase.from('arbitraje_partidos')
+      .upsert(filas, { onConflict: 'partido_id,jugador_id' });
+    if (!error) return;
+    // Intento 2: si el upsert falla (p. ej. la tabla se creó sin la
+    // restricción única y ON CONFLICT no tiene dónde aterrizar), se
+    // reemplaza TODO el detalle del partido: se borran los registros
+    // previos y se reinsertan con el estado real (incluidos los
+    // jugadores desmarcados con pagado = false).
+    const { error: errDel } = await supabase.from('arbitraje_partidos').delete().eq('partido_id', partidoId);
+    if (errDel) throw errDel;
+    const { error: errIns } = await supabase.from('arbitraje_partidos').insert(filas);
+    if (errIns) throw errIns;
+  } catch (err) {
+    // El pago global ya quedó guardado en partidos: el partido se
+    // guarda igual. Se avisa en consola para no fallar en silencio.
+    console.warn('No se pudo sincronizar el detalle de arbitraje por jugador:', err?.message || err);
   }
 }
 
@@ -830,6 +845,9 @@ $('form-partido').addEventListener('submit', async e => {
     // estadísticas del panel. La vista pública se entera sola vía
     // Realtime (js/public.js) o con su refresco periódico.
     renderEstadisticas();
+    // Refresca también el panel de recaudo leyendo los datos recién
+    // persistidos (arbitraje_partidos) para reflejar los desmarques.
+    await renderFinanzas();
   } catch (err) {
     avisoErrorSupabase(err, 'No se pudo guardar el partido');
   } finally {
